@@ -3,27 +3,15 @@ import Credentials from "next-auth/providers/credentials";
 import { prisma } from "@/lib/prisma";
 import bcrypt from "bcryptjs";
 import { z } from "zod";
+import { authConfig } from "@/auth.config";
 
 const loginSchema = z.object({
   email: z.string().email(),
   password: z.string().min(6),
 });
-type AuthUser = {
-  id?: string;
-  role?: string;
-  restaurantId?: string | null;
-  restaurantSlug?: string | null;
-  restaurantName?: string | null;
-};
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
-  session: { strategy: "jwt" },
-  secret: process.env.AUTH_SECRET || process.env.NEXTAUTH_SECRET,
-  trustHost: true,
-  pages: {
-    signIn: "/login",
-    error: "/login",
-  },
+  ...authConfig,
   providers: [
     Credentials({
       name: "credentials",
@@ -64,29 +52,6 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       },
     }),
   ],
-  callbacks: {
-    async jwt({ token, user }) {
-      if (user) {
-        const u = user as AuthUser;
-        token.role = u.role;
-        token.restaurantId = u.restaurantId;
-        token.restaurantSlug = u.restaurantSlug;
-        token.restaurantName = u.restaurantName;
-      }
-      return token;
-    },
-    async session({ session, token }) {
-      if (token) {
-        session.user.id = token.sub!;
-        const u = session.user as unknown as AuthUser;
-        u.role = token.role as string | undefined;
-        u.restaurantId = token.restaurantId as string | undefined;
-        u.restaurantSlug = token.restaurantSlug as string | undefined;
-        u.restaurantName = token.restaurantName as string | undefined;
-      }
-      return session;
-    },
-  },
 });
 
 export const { GET, POST } = handlers;

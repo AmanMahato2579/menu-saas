@@ -1,11 +1,7 @@
-self.addEventListener('install', (e) => {
+self.addEventListener('install', () => {
   self.skipWaiting();
 });
 
 self.addEventListener('activate', (e) => {
-  return self.clients.claim();
-});
-
-self.addEventListener('fetch', (e) => {
-  // Pass-through fetch for everything (minimal requirement for PWA)
+  e.waitUntil(self.clients.claim());
 });
