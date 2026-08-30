@@ -18,9 +18,11 @@ type AuthUser = {
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   session: { strategy: "jwt" },
-  secret: process.env.AUTH_SECRET,
+  secret: process.env.AUTH_SECRET || process.env.NEXTAUTH_SECRET,
+  trustHost: true,
   pages: {
     signIn: "/login",
+    error: "/login",
   },
   providers: [
     Credentials({
@@ -30,30 +32,35 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         password: { label: "Password", type: "password" },
       },
       async authorize(credentials) {
-        const parsed = loginSchema.safeParse(credentials);
-        if (!parsed.success) return null;
+        try {
+          const parsed = loginSchema.safeParse(credentials);
+          if (!parsed.success) return null;
 
-        const { email, password } = parsed.data;
+          const { email, password } = parsed.data;
 
-        const user = await prisma.user.findUnique({
-          where: { email },
-          include: { restaurant: { select: { id: true, slug: true, name: true } } },
-        });
+          const user = await prisma.user.findUnique({
+            where: { email },
+            include: { restaurant: { select: { id: true, slug: true, name: true } } },
+          });
 
-        if (!user) return null;
+          if (!user || !user.passwordHash) return null;
 
-        const isValid = await bcrypt.compare(password, user.passwordHash);
-        if (!isValid) return null;
+          const isValid = await bcrypt.compare(password, user.passwordHash);
+          if (!isValid) return null;
 
-        return {
-          id: user.id,
-          email: user.email,
-          name: user.name,
-          role: user.role,
-          restaurantId: user.restaurantId,
-          restaurantSlug: user.restaurant?.slug ?? null,
-          restaurantName: user.restaurant?.name ?? null,
-        };
+          return {
+            id: user.id,
+            email: user.email,
+            name: user.name,
+            role: user.role,
+            restaurantId: user.restaurantId,
+            restaurantSlug: user.restaurant?.slug ?? null,
+            restaurantName: user.restaurant?.name ?? null,
+          };
+        } catch (error) {
+          console.error("[NextAuth Authorize Error]:", error);
+          return null;
+        }
       },
     }),
   ],
