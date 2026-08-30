@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { getRestaurantBySlug, getTableByToken, getOrCreateActiveSession, getPublicMenu, getActiveOffers } from "@/lib/db";
+import { getRestaurantBySlug, getTableByToken, getOrCreateActiveSession, getPublicMenu } from "@/lib/db";
 import CustomerMenu from "./CustomerMenu";
 import type { Metadata } from "next";
 
@@ -25,6 +25,18 @@ export default async function MenuPage({ params }: Props) {
   const restaurant = await getRestaurantBySlug(restaurantSlug);
   if (!restaurant) notFound();
 
+  if (!restaurant.isActive) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center p-4 bg-orange-50">
+        <div className="text-5xl mb-4">🔒</div>
+        <h1 className="text-2xl font-bold text-gray-900 mb-2">Account Inactive</h1>
+        <p className="text-gray-600 text-center max-w-sm">
+          This restaurant's menu is currently unavailable. Please contact the administrator to open it.
+        </p>
+      </div>
+    );
+  }
+
   // 2. Find table
   const table = await getTableByToken(tableToken);
   if (!table || table.restaurantId !== restaurant.id || !table.isActive) {
@@ -44,11 +56,8 @@ export default async function MenuPage({ params }: Props) {
   // 3. Get or create active session
   const session = await getOrCreateActiveSession(table.id, restaurant.id);
 
-  // 4. Fetch menu + offers
-  const [categories, offers] = await Promise.all([
-    getPublicMenu(restaurant.id),
-    getActiveOffers(restaurant.id),
-  ]);
+  // 4. Fetch menu
+  const categories = await getPublicMenu(restaurant.id);
 
   return (
     <CustomerMenu
@@ -56,7 +65,6 @@ export default async function MenuPage({ params }: Props) {
       table={JSON.parse(JSON.stringify(table))}
       tableSession={JSON.parse(JSON.stringify(session))}
       categories={JSON.parse(JSON.stringify(categories))}
-      offers={JSON.parse(JSON.stringify(offers))}
     />
   );
 }

@@ -13,7 +13,8 @@ const patchSchema = z.object({
   isAvailable: z.boolean().optional(),
   hasSpicyOption: z.boolean().optional(),
   hasNoteOption: z.boolean().optional(),
-  displayOrder: z.coerce.number().int().optional(),
+  ingredients: z.string().optional().nullable(),
+  discountPercent: z.coerce.number().int().min(0).max(100).optional(),
 });
 
 async function getRestaurantId(): Promise<string | null> {

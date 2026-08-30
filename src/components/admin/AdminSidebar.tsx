@@ -9,12 +9,12 @@ import {
   LayoutDashboard,
   ClipboardList,
   UtensilsCrossed,
-  Tag,
   QrCode,
   Settings,
   LogOut,
   ChefHat,
 } from "lucide-react";
+import InstallPWA from "./InstallPWA";
 
 interface AdminSidebarProps {
   user: AdminUser;
@@ -24,7 +24,6 @@ const navItems = [
   { href: "/admin", label: "Dashboard", icon: LayoutDashboard, exact: true },
   { href: "/admin/orders", label: "Orders", icon: ClipboardList },
   { href: "/admin/menu", label: "Menu", icon: UtensilsCrossed },
-  { href: "/admin/offers", label: "Offers", icon: Tag },
   { href: "/admin/tables", label: "Tables", icon: QrCode },
   { href: "/admin/settings", label: "Settings", icon: Settings },
 ];
@@ -76,6 +75,8 @@ export default function AdminSidebar({ user }: AdminSidebarProps) {
           );
         })}
       </nav>
+
+      <InstallPWA />
 
       {/* User info & logout */}
       <div className="p-4 border-t border-white/10">

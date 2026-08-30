@@ -13,7 +13,7 @@ export default async function NewMenuItemPage({ searchParams }: Props) {
   const user = await requireRestaurantAdmin();
   const categories = await prisma.category.findMany({
     where: { restaurantId: user.restaurantId!, isActive: true },
-    orderBy: { displayOrder: "asc" },
+    orderBy: { createdAt: "asc" },
   });
 
   return (

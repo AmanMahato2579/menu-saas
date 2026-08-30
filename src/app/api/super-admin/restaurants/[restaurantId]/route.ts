@@ -15,10 +15,26 @@ export async function PATCH(
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
   const { restaurantId } = await params;
-  const { isActive } = await req.json();
+  const data = await req.json();
   const updated = await prisma.restaurant.update({
     where: { id: restaurantId },
-    data: { isActive },
+    data,
   });
   return NextResponse.json(updated);
+}
+
+export async function DELETE(
+  req: Request,
+  { params }: { params: Promise<{ restaurantId: string }> }
+) {
+  if (!(await isSuperAdmin())) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+  const { restaurantId } = await params;
+  
+  await prisma.restaurant.delete({
+    where: { id: restaurantId },
+  });
+  
+  return NextResponse.json({ success: true });
 }

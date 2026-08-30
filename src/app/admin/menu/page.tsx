@@ -13,10 +13,10 @@ export default async function MenuPage() {
 
   const categories = await prisma.category.findMany({
     where: { restaurantId },
-    orderBy: { displayOrder: "asc" },
+    orderBy: { createdAt: "asc" },
     include: {
       menuItems: {
-        orderBy: { displayOrder: "asc" },
+        orderBy: { createdAt: "asc" },
       },
     },
   });

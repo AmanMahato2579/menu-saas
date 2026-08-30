@@ -25,6 +25,8 @@ interface MenuItem {
   description: string | null;
   price: string;
   imageUrl: string | null;
+  ingredients: string | null;
+  discountPercent: number;
   isAvailable: boolean;
   hasSpicyOption: boolean;
   hasNoteOption: boolean;
@@ -54,7 +56,6 @@ interface Props {
   table: { id: string; tableNumber: number };
   tableSession: TableSession;
   categories: Category[];
-  offers: Offer[];
 }
 
 const CART_KEY = (sessionId: string) => `cart_${sessionId}`;
@@ -70,7 +71,7 @@ function getOrCreateCustomerToken(): string {
   return token;
 }
 
-export default function CustomerMenu({ restaurant, table, tableSession, categories, offers }: Props) {
+export default function CustomerMenu({ restaurant, table, tableSession, categories }: Props) {
   const params = useParams();
   const [cart, setCart] = useState<CartItem[]>(() => {
     if (typeof window === "undefined") return [];
@@ -166,27 +167,6 @@ export default function CustomerMenu({ restaurant, table, tableSession, categori
       </div>
 
       <div className="max-w-lg mx-auto">
-        {/* Special Offers */}
-        {offers.length > 0 && (
-          <div className="px-4 pt-4">
-            <h2 className="text-sm font-semibold text-orange-600 uppercase tracking-wider mb-2 flex items-center gap-1">
-              <Star className="w-3.5 h-3.5 fill-orange-500 text-orange-500" /> Special Offers
-            </h2>
-            <div className="flex gap-3 overflow-x-auto pb-1 -mx-4 px-4">
-              {offers.map((offer) => (
-                <div
-                  key={offer.id}
-                  className="shrink-0 bg-gradient-to-br from-orange-500 to-red-500 text-white rounded-2xl p-4 w-56 shadow-lg"
-                >
-                  <p className="font-bold text-sm">{offer.title}</p>
-                  {offer.description && (
-                    <p className="text-white/80 text-xs mt-1 line-clamp-2">{offer.description}</p>
-                  )}
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
 
         {/* Category Nav */}
         {categories.length > 1 && (
@@ -244,11 +224,32 @@ export default function CustomerMenu({ restaurant, table, tableSession, categori
                           {item.description && (
                             <p className="text-xs text-gray-400 mt-0.5 line-clamp-2">{item.description}</p>
                           )}
+                          {item.ingredients && (
+                            <div className="flex flex-wrap gap-1 mt-1.5">
+                              {item.ingredients.split(',').map((ing, i) => (
+                                <span key={i} className="text-[10px] px-1.5 py-0.5 bg-gray-100 text-gray-500 rounded-sm uppercase tracking-wider font-medium">
+                                  {ing.trim()}
+                                </span>
+                              ))}
+                            </div>
+                          )}
                         </div>
                         <div className="flex items-center justify-between mt-2">
-                          <p className="font-bold text-orange-600">
-                            {formatCurrency(item.price, restaurant.currency)}
-                          </p>
+                          <div className="flex flex-col">
+                            {item.discountPercent > 0 && (
+                              <span className="text-xs text-gray-400 line-through">
+                                {formatCurrency(item.price, restaurant.currency)}
+                              </span>
+                            )}
+                            <p className="font-bold text-orange-600">
+                              {formatCurrency(
+                                item.discountPercent > 0
+                                  ? parseFloat(item.price) - (parseFloat(item.price) * item.discountPercent / 100)
+                                  : item.price,
+                                restaurant.currency
+                              )}
+                            </p>
+                          </div>
                           <button
                             onClick={() => setSelectedItem(item)}
                             className="w-8 h-8 rounded-full bg-orange-500 text-white flex items-center justify-center font-bold text-lg hover:bg-orange-600 transition-colors shadow-sm"

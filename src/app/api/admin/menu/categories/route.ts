@@ -6,7 +6,6 @@ import { z } from "zod";
 const categorySchema = z.object({
   name: z.string().min(1).max(50),
   description: z.string().optional(),
-  displayOrder: z.number().int().default(0),
   isActive: z.boolean().default(true),
 });
 
@@ -21,7 +20,7 @@ export async function GET(req: Request) {
 
   const categories = await prisma.category.findMany({
     where: { restaurantId },
-    orderBy: { displayOrder: "asc" },
+    orderBy: { createdAt: "asc" },
   });
   return NextResponse.json(categories);
 }

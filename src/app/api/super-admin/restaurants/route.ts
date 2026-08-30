@@ -11,6 +11,8 @@ const schema = z.object({
   ownerEmail: z.string().email(),
   tempPassword: z.string().min(6),
   tableCount: z.number().int().min(1).max(200),
+  phone: z.string().optional(),
+  address: z.string().optional(),
 });
 
 async function isSuperAdmin() {
@@ -27,7 +29,7 @@ export async function POST(req: Request) {
   const parsed = schema.safeParse(body);
   if (!parsed.success) return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
 
-  const { name, ownerName, ownerEmail, tempPassword, tableCount } = parsed.data;
+  const { name, ownerName, ownerEmail, tempPassword, tableCount, phone, address } = parsed.data;
 
   // Generate unique slug
   let slug = slugify(name);
@@ -39,7 +41,7 @@ export async function POST(req: Request) {
   // Create restaurant + owner + tables in a transaction
   const result = await prisma.$transaction(async (tx) => {
     const restaurant = await tx.restaurant.create({
-      data: { name, slug },
+      data: { name, slug, phone, address },
     });
 
     const user = await tx.user.create({

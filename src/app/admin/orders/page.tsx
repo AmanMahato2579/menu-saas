@@ -1,5 +1,6 @@
 import { requireRestaurantAdmin } from "@/lib/auth-guard";
 import { getAdminOrders } from "@/lib/db";
+import { OrderStatus } from "@prisma/client";
 import OrdersClient from "./OrdersClient";
 
 interface Props {
@@ -12,7 +13,7 @@ export const dynamic = "force-dynamic";
 export default async function OrdersPage({ searchParams }: Props) {
   const params = await searchParams;
   const user = await requireRestaurantAdmin();
-  const orders = await getAdminOrders(user.restaurantId!, params.status);
+  const orders = await getAdminOrders(user.restaurantId!, params.status as OrderStatus | undefined);
 
   return (
     <div className="space-y-6">

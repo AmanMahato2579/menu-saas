@@ -10,7 +10,8 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/components/ui/toast";
-import { Loader2, Save } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
+import { Loader2, Save, Percent } from "lucide-react";
 
 const settingsSchema = z.object({
   name: z.string().min(1, "Name is required"),
@@ -20,6 +21,8 @@ const settingsSchema = z.object({
   currency: z.string().default("Rs."),
   openingHours: z.string().optional(),
   logoUrl: z.string().url().optional().or(z.literal("")),
+  taxRate: z.coerce.number().min(0).max(100).default(0),
+  isTaxEnabled: z.boolean().default(false),
 });
 
 type SettingsForm = z.infer<typeof settingsSchema>;
@@ -34,6 +37,8 @@ interface Restaurant {
   currency: string;
   openingHours: string | null;
   logoUrl: string | null;
+  taxRate: number;
+  isTaxEnabled: boolean;
 }
 
 interface Props {
@@ -42,7 +47,7 @@ interface Props {
 
 export default function SettingsClient({ restaurant }: Props) {
   const { toast } = useToast();
-  const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm<SettingsForm>({
+  const { register, handleSubmit, watch, setValue, formState: { errors, isSubmitting } } = useForm<SettingsForm>({
     resolver: zodResolver(settingsSchema) as unknown as Resolver<SettingsForm>,
     defaultValues: {
       name: restaurant.name,
@@ -52,8 +57,12 @@ export default function SettingsClient({ restaurant }: Props) {
       currency: restaurant.currency,
       openingHours: restaurant.openingHours ?? "",
       logoUrl: restaurant.logoUrl ?? "",
+      taxRate: restaurant.taxRate ?? 0,
+      isTaxEnabled: restaurant.isTaxEnabled ?? false,
     },
   });
+
+  const isTaxEnabled = watch("isTaxEnabled");
 
   const onSubmit = async (data: SettingsForm) => {
     const res = await fetch("/api/admin/settings", {
@@ -104,6 +113,39 @@ export default function SettingsClient({ restaurant }: Props) {
             <div className="space-y-1.5 col-span-2">
               <Label>Logo URL</Label>
               <Input type="url" placeholder="https://example.com/logo.png" {...register("logoUrl")} />
+            </div>
+
+            {/* Tax Settings */}
+            <div className="col-span-2 pt-3 border-t">
+              <h3 className="text-sm font-semibold text-gray-700 flex items-center gap-1.5 mb-3">
+                <Percent className="w-4 h-4 text-orange-500" /> Tax Settings
+              </h3>
+              <div className="flex items-center justify-between p-3 bg-gray-50 rounded-xl mb-3">
+                <div>
+                  <p className="text-sm font-medium text-gray-700">Enable Tax on Bills</p>
+                  <p className="text-xs text-gray-400 mt-0.5">Tax is added to every order total</p>
+                </div>
+                <Switch
+                  checked={isTaxEnabled}
+                  onCheckedChange={(val) => setValue("isTaxEnabled", val)}
+                />
+              </div>
+              {isTaxEnabled && (
+                <div className="space-y-1.5">
+                  <Label htmlFor="taxRate">Tax Rate (%)</Label>
+                  <Input
+                    id="taxRate"
+                    type="number"
+                    step="0.5"
+                    min="0"
+                    max="100"
+                    placeholder="13"
+                    {...register("taxRate")}
+                    className="max-w-xs"
+                  />
+                  <p className="text-xs text-gray-400">e.g. 13 for 13% VAT. Will appear on cart and bill pages.</p>
+                </div>
+              )}
             </div>
           </div>
 

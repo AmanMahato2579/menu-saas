@@ -20,11 +20,12 @@ const itemSchema = z.object({
   name: z.string().min(1, "Name is required").max(100),
   description: z.string().optional(),
   price: z.coerce.number().positive("Price must be greater than 0"),
-  imageUrl: z.string().optional(),
+  imageUrl: z.string().trim().optional().or(z.literal("")),
   isAvailable: z.boolean().default(true),
   hasSpicyOption: z.boolean().default(false),
   hasNoteOption: z.boolean().default(true),
-  displayOrder: z.coerce.number().int().default(0),
+  ingredients: z.string().optional(),
+  discountPercent: z.coerce.number().int().min(0).max(100).default(0),
 });
 
 type ItemForm = z.infer<typeof itemSchema>;
@@ -41,10 +42,11 @@ interface MenuItem {
   description: string | null;
   price: string;
   imageUrl: string | null;
+  ingredients: string | null;
+  discountPercent: number;
   isAvailable: boolean;
   hasSpicyOption: boolean;
   hasNoteOption: boolean;
-  displayOrder: number;
 }
 
 interface Props {
@@ -71,10 +73,11 @@ export default function MenuItemForm({ categories, defaultCategoryId, item }: Pr
       description: item?.description ?? "",
       price: item?.price ? parseFloat(item.price) : undefined,
       imageUrl: item?.imageUrl ?? "",
+      ingredients: item?.ingredients ?? "",
+      discountPercent: item?.discountPercent ?? 0,
       isAvailable: item?.isAvailable ?? true,
       hasSpicyOption: item?.hasSpicyOption ?? false,
       hasNoteOption: item?.hasNoteOption ?? true,
-      displayOrder: item?.displayOrder ?? 0,
     },
   });
 
@@ -85,11 +88,12 @@ export default function MenuItemForm({ categories, defaultCategoryId, item }: Pr
   const onSubmit = async (data: ItemForm) => {
     const url = item ? `/api/admin/menu/items/${item.id}` : "/api/admin/menu/items";
     const method = item ? "PATCH" : "POST";
+    const normalizedImageUrl = data.imageUrl?.trim() ?? "";
 
     const res = await fetch(url, {
       method,
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ...data, imageUrl: data.imageUrl || null }),
+      body: JSON.stringify({ ...data, imageUrl: normalizedImageUrl || null }),
     });
 
     if (res.ok) {
@@ -147,10 +151,11 @@ export default function MenuItemForm({ categories, defaultCategoryId, item }: Pr
             <Input
               id="price"
               type="number"
-              step="0.01"
+              step="1"
               min="0"
               placeholder="180"
               {...register("price")}
+              className="appearance-none [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
             />
             {errors.price && <p className="text-red-500 text-xs">{errors.price.message}</p>}
           </div>
@@ -168,8 +173,25 @@ export default function MenuItemForm({ categories, defaultCategoryId, item }: Pr
 
           {/* Display Order */}
           <div className="space-y-1.5">
-            <Label htmlFor="displayOrder">Display Order</Label>
-            <Input id="displayOrder" type="number" placeholder="0" {...register("displayOrder")} />
+            <Label htmlFor="ingredients">Ingredients</Label>
+            <Input id="ingredients" placeholder="e.g. Chicken, Flour, Spices" {...register("ingredients")} />
+            <p className="text-xs text-gray-400">Comma-separated ingredients</p>
+          </div>
+
+          {/* Discount */}
+          <div className="space-y-1.5">
+            <Label htmlFor="discountPercent">Discount (%)</Label>
+            <Input
+              id="discountPercent"
+              type="number"
+              step="1"
+              min="0"
+              max="100"
+              placeholder="0"
+              {...register("discountPercent")}
+              className="appearance-none [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+            />
+            {errors.discountPercent && <p className="text-red-500 text-xs">{errors.discountPercent.message}</p>}
           </div>
 
           {/* Toggles */}

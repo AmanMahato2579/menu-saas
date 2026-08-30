@@ -8,11 +8,12 @@ const itemSchema = z.object({
   name: z.string().min(1).max(100),
   description: z.string().optional(),
   price: z.coerce.number().positive("Price must be positive"),
-  imageUrl: z.string().url().optional().or(z.literal("")),
+  imageUrl: z.string().url().optional().nullable().or(z.literal("")),
   isAvailable: z.boolean().default(true),
   hasSpicyOption: z.boolean().default(false),
   hasNoteOption: z.boolean().default(true),
-  displayOrder: z.coerce.number().int().default(0),
+  ingredients: z.string().optional().nullable(),
+  discountPercent: z.coerce.number().int().min(0).max(100).default(0),
 });
 
 async function getRestaurantId(): Promise<string | null> {

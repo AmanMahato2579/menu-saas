@@ -2,6 +2,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import type { AdminUser } from "@/types";
 
 const statusSchema = z.object({
   status: z.enum(["PENDING", "ACCEPTED", "PREPARING", "READY", "COMPLETED", "REJECTED"]),
@@ -16,8 +17,8 @@ export async function PATCH(
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const user = session.user as { id?: string; role?: string };
-  const restaurantId: string | null = user.restaurantId ?? null;
+  const user = session.user as unknown as AdminUser;
+  const restaurantId = user.restaurantId;
 
   if (!restaurantId) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });

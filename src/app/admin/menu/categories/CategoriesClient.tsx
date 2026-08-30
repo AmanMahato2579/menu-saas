@@ -18,7 +18,6 @@ import { Pencil, Trash2, Plus, Loader2, X } from "lucide-react";
 const categorySchema = z.object({
   name: z.string().min(1, "Name is required").max(50),
   description: z.string().optional(),
-  displayOrder: z.coerce.number().int().default(0),
   isActive: z.boolean().default(true),
 });
 
@@ -28,7 +27,6 @@ interface Category {
   id: string;
   name: string;
   description: string | null;
-  displayOrder: number;
   isActive: boolean;
   _count: { menuItems: number };
 }
@@ -54,7 +52,7 @@ export default function CategoriesClient({ categories: initialCategories, restau
     formState: { errors, isSubmitting },
   } = useForm<CategoryForm>({
     resolver: zodResolver(categorySchema) as unknown as Resolver<CategoryForm>,
-    defaultValues: { isActive: true, displayOrder: 0 },
+    defaultValues: { isActive: true },
   });
 
   const isActive = watch("isActive");
@@ -65,7 +63,6 @@ export default function CategoriesClient({ categories: initialCategories, restau
     reset({
       name: cat.name,
       description: cat.description ?? "",
-      displayOrder: cat.displayOrder,
       isActive: cat.isActive,
     });
   };
@@ -73,7 +70,7 @@ export default function CategoriesClient({ categories: initialCategories, restau
   const cancelForm = () => {
     setShowForm(false);
     setEditingId(null);
-    reset({ isActive: true, displayOrder: 0 });
+    reset({ isActive: true });
   };
 
   const onSubmit = async (data: CategoryForm) => {
@@ -134,7 +131,7 @@ export default function CategoriesClient({ categories: initialCategories, restau
                     <p className="text-sm text-gray-400 truncate">{cat.description}</p>
                   )}
                   <p className="text-xs text-gray-400 mt-0.5">
-                    {cat._count.menuItems} items · Order #{cat.displayOrder}
+                    {cat._count.menuItems} items
                   </p>
                 </div>
                 <div className="flex gap-1 shrink-0">
@@ -193,11 +190,6 @@ export default function CategoriesClient({ categories: initialCategories, restau
                 <div className="space-y-1.5">
                   <Label htmlFor="cat-desc">Description</Label>
                   <Input id="cat-desc" placeholder="Optional description" {...register("description")} />
-                </div>
-
-                <div className="space-y-1.5">
-                  <Label htmlFor="cat-order">Display Order</Label>
-                  <Input id="cat-order" type="number" placeholder="0" {...register("displayOrder")} />
                 </div>
 
                 <div className="flex items-center justify-between">

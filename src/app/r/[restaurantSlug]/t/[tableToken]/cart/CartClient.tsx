@@ -27,6 +27,8 @@ interface Restaurant {
   name: string;
   slug: string;
   currency: string;
+  isTaxEnabled: boolean;
+  taxRate: number;
 }
 
 interface Props {
@@ -64,7 +66,9 @@ export default function CartClient({ restaurant, table, tableSession }: Props) {
     localStorage.setItem(CART_KEY(tableSession.id), JSON.stringify(newCart));
   };
 
-  const total = cart.reduce((sum, i) => sum + i.price * i.quantity, 0);
+  const subtotal = cart.reduce((sum, i) => sum + i.price * i.quantity, 0);
+  const taxAmount = restaurant.isTaxEnabled ? subtotal * (restaurant.taxRate / 100) : 0;
+  const total = subtotal + taxAmount;
 
   const placeOrder = async () => {
     if (cart.length === 0) return;
@@ -178,9 +182,15 @@ export default function CartClient({ restaurant, table, tableSession }: Props) {
             <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 mt-2">
               <div className="flex justify-between text-sm text-gray-500 mb-2">
                 <span>Subtotal ({cart.reduce((s, i) => s + i.quantity, 0)} items)</span>
-                <span>{formatCurrency(total, restaurant.currency)}</span>
+                <span>{formatCurrency(subtotal, restaurant.currency)}</span>
               </div>
-              <div className="flex justify-between font-bold text-gray-900 text-lg">
+              {restaurant.isTaxEnabled && (
+                <div className="flex justify-between text-sm text-gray-500 mb-2 border-b pb-2">
+                  <span>Tax ({restaurant.taxRate}%)</span>
+                  <span>{formatCurrency(taxAmount, restaurant.currency)}</span>
+                </div>
+              )}
+              <div className="flex justify-between font-bold text-gray-900 text-lg pt-2">
                 <span>Total</span>
                 <span className="text-orange-600">{formatCurrency(total, restaurant.currency)}</span>
               </div>

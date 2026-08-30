@@ -17,7 +17,7 @@ export default async function BillPage({ params }: Props) {
   const table = await getTableByToken(tableToken);
   if (!table || table.restaurantId !== restaurant.id) notFound();
   const session = await getOrCreateActiveSession(table.id, restaurant.id);
-  const { orders, total } = await getSessionBill(session.id, restaurant.id);
+  const { orders, subtotal, taxAmount, total } = await getSessionBill(session.id, restaurant.id);
 
   const baseUrl = `/r/${restaurantSlug}/t/${tableToken}`;
 
@@ -78,6 +78,20 @@ export default async function BillPage({ params }: Props) {
                 ))}
               </div>
             ))}
+
+            {/* Subtotal & Tax */}
+            <div className="px-4 py-3 border-t">
+              <div className="flex justify-between text-sm text-gray-500 mb-1">
+                <span>Subtotal</span>
+                <span>{formatCurrency(subtotal, restaurant.currency)}</span>
+              </div>
+              {taxAmount > 0 && (
+                <div className="flex justify-between text-sm text-gray-500">
+                  <span>Tax ({restaurant.taxRate?.toString() || 0}%)</span>
+                  <span>{formatCurrency(taxAmount, restaurant.currency)}</span>
+                </div>
+              )}
+            </div>
 
             {/* Total */}
             <div className="px-4 py-4 border-t-2 border-dashed flex justify-between items-center">

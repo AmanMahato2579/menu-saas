@@ -19,7 +19,7 @@ export default async function EditMenuItemPage({ params }: Props) {
     }),
     prisma.category.findMany({
       where: { restaurantId: user.restaurantId!, isActive: true },
-      orderBy: { displayOrder: "asc" },
+      orderBy: { createdAt: "asc" },
     }),
   ]);
 

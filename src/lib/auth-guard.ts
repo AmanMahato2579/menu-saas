@@ -24,5 +24,15 @@ export async function requireRestaurantAdmin(): Promise<AdminUser> {
   if (user.role !== UserRole.RESTAURANT_ADMIN || !user.restaurantId) {
     redirect("/login");
   }
+  
+  const restaurant = await import("./prisma").then(m => m.prisma.restaurant.findUnique({
+    where: { id: user.restaurantId! },
+    select: { isActive: true }
+  }));
+  
+  if (!restaurant || !restaurant.isActive) {
+    redirect("/inactive");
+  }
+  
   return user;
 }

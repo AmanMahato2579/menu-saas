@@ -99,7 +99,7 @@ export default function OrdersPageClient({ restaurant, table, orders: initialOrd
           </div>
         ) : (
           orders.map((order) => {
-            const currentStepIdx = STATUS_STEPS.indexOf(order.status as string);
+            const currentStepIdx = STATUS_STEPS.indexOf(order.status as typeof STATUS_STEPS[number]);
             const isRejected = order.status === "REJECTED";
 
             return (

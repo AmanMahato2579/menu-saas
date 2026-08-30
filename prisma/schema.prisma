@@ -61,13 +61,14 @@ model Restaurant {
   phone       String?
   currency    String  @default("Rs.")
   openingHours String?
+  taxRate     Decimal @default(0) @db.Decimal(5, 2)
+  isTaxEnabled Boolean @default(false)
   isActive    Boolean @default(true)
 
   users         User[]
   tables        Table[]
   categories    Category[]
   menuItems     MenuItem[]
-  specialOffers SpecialOffer[]
   tableSessions TableSession[]
   orders        Order[]
 
@@ -123,7 +124,6 @@ model Category {
   restaurantId String
   name         String
   description  String?
-  displayOrder Int     @default(0)
   isActive     Boolean @default(true)
 
   restaurant Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
@@ -145,10 +145,11 @@ model MenuItem {
   description    String?
   price          Decimal @db.Decimal(10, 2)
   imageUrl       String?
+  ingredients    String?
+  discountPercent Int     @default(0)
   isAvailable    Boolean @default(true)
   hasSpicyOption Boolean @default(false)
   hasNoteOption  Boolean @default(true)
-  displayOrder   Int     @default(0)
 
   restaurant Restaurant  @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
   category   Category    @relation(fields: [categoryId], references: [id], onDelete: Cascade)
@@ -161,25 +162,7 @@ model MenuItem {
   @@index([categoryId])
 }
 
-// ─── SpecialOffer ─────────────────────────────────────────────────────────────
 
-model SpecialOffer {
-  id           String    @id @default(cuid())
-  restaurantId String
-  title        String
-  description  String?
-  imageUrl     String?
-  startDate    DateTime?
-  endDate      DateTime?
-  isActive     Boolean   @default(true)
-
-  restaurant Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@index([restaurantId])
-}
 
 // ─── Order ────────────────────────────────────────────────────────────────────
 
@@ -190,6 +173,8 @@ model Order {
   tableSessionId String
   customerToken  String      // anonymous customer session token
   status         OrderStatus @default(PENDING)
+  subtotal       Decimal     @db.Decimal(10, 2) @default(0)
+  taxAmount      Decimal     @db.Decimal(10, 2) @default(0)
   total          Decimal     @db.Decimal(10, 2)
   notes          String?
 

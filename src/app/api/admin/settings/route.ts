@@ -11,6 +11,8 @@ const settingsSchema = z.object({
   currency: z.string().default("Rs."),
   openingHours: z.string().optional().nullable(),
   logoUrl: z.string().url().optional().nullable(),
+  taxRate: z.coerce.number().min(0).max(100).optional(),
+  isTaxEnabled: z.boolean().optional(),
 });
 
 export async function PATCH(req: Request) {

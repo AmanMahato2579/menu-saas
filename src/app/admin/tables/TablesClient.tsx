@@ -33,7 +33,10 @@ interface Props {
   restaurantId: string;
 }
 
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+const getAppUrl = () => {
+  if (typeof window !== "undefined") return window.location.origin;
+  return process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+};
 
 export default function TablesClient({ tables, restaurantSlug, restaurantId }: Props) {
   const router = useRouter();
@@ -46,7 +49,7 @@ export default function TablesClient({ tables, restaurantSlug, restaurantId }: P
   const qrRef = useRef<HTMLDivElement>(null);
 
   const getQRUrl = (token: string) =>
-    `${APP_URL}/r/${restaurantSlug}/t/${token}`;
+    `${getAppUrl()}/r/${restaurantSlug}/t/${token}`;
 
   const addTable = async () => {
     const num = parseInt(newTableNumber);

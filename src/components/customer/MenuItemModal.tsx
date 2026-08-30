@@ -13,6 +13,8 @@ interface MenuItem {
   description: string | null;
   price: string;
   imageUrl: string | null;
+  ingredients: string | null;
+  discountPercent: number;
   hasSpicyOption: boolean;
   hasNoteOption: boolean;
 }
@@ -29,7 +31,10 @@ export default function MenuItemModal({ item, currency, onClose, onAddToCart }: 
   const [isSpicy, setIsSpicy] = useState(false);
   const [note, setNote] = useState("");
 
-  const price = parseFloat(item.price);
+  const basePrice = parseFloat(item.price);
+  const price = item.discountPercent > 0 
+    ? basePrice - (basePrice * item.discountPercent / 100) 
+    : basePrice;
   const total = price * quantity;
 
   const handleAdd = () => {
@@ -80,9 +85,16 @@ export default function MenuItemModal({ item, currency, onClose, onAddToCart }: 
                 <p className="text-sm text-gray-500 mt-1">{item.description}</p>
               )}
             </div>
-            <p className="text-xl font-bold text-orange-600 shrink-0">
-              {formatCurrency(item.price, currency)}
-            </p>
+            <div className="flex flex-col items-end">
+              {item.discountPercent > 0 && (
+                <span className="text-sm text-gray-400 line-through">
+                  {formatCurrency(basePrice, currency)}
+                </span>
+              )}
+              <p className="text-xl font-bold text-orange-600 shrink-0">
+                {formatCurrency(price, currency)}
+              </p>
+            </div>
           </div>
 
           {/* Quantity */}
