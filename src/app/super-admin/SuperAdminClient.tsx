@@ -2,12 +2,13 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { signOut } from "next-auth/react";
 import { useForm } from "react-hook-form";
 import type { Resolver } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useToast } from "@/components/ui/toast";
-import { Plus, Building2, Users, QrCode, CheckCircle, XCircle, Loader2, Trash2, Pencil } from "lucide-react";
+import { Plus, Building2, Users, QrCode, CheckCircle, XCircle, Loader2, Trash2, Pencil, LogOut } from "lucide-react";
 import { slugify } from "@/lib/utils";
 import InstallPWA from "@/components/admin/InstallPWA";
 
@@ -99,10 +100,17 @@ export default function SuperAdminClient({ restaurants }: Props) {
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-end">
+      <div className="flex justify-end items-center gap-3">
         <div className="w-48">
           <InstallPWA />
         </div>
+        <button
+          onClick={() => signOut({ callbackUrl: "/login" })}
+          className="flex items-center gap-2 px-4 py-2 rounded-lg border border-white/20 text-gray-300 text-sm hover:border-red-500/40 hover:text-red-400 transition-colors"
+        >
+          <LogOut className="w-4 h-4" />
+          Logout
+        </button>
       </div>
 
       {/* Stats */}

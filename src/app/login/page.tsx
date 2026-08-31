@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, Suspense } from "react";
-import { signIn } from "next-auth/react";
+import { signIn, getSession } from "next-auth/react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -55,7 +55,10 @@ function LoginForm() {
         return;
       }
 
-      router.push("/admin");
+      const session = await getSession();
+      const role = (session?.user as { role?: string } | undefined)?.role;
+
+      router.push(role === "SUPER_ADMIN" ? "/super-admin" : "/admin");
       router.refresh();
     } catch (err) {
       console.error("Login submission error:", err);
