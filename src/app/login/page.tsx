@@ -26,7 +26,7 @@ function LoginForm() {
 
   const [error, setError] = useState<string | null>(
     urlError === "Configuration"
-      ? "Server configuration error. Please check AUTH_SECRET and environment variables in production."
+      ? "Server configuration error. Set AUTH_SECRET / NEXTAUTH_SECRET and AUTH_URL / NEXTAUTH_URL in Vercel before deploying."
       : urlError
       ? "Authentication failed. Please check your credentials or server setup."
       : null
