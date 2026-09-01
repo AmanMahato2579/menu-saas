@@ -5,6 +5,8 @@ export type { OrderStatus, UserRole, TableSessionStatus };
 // Cart item stored in localStorage/state
 export interface CartItem {
   menuItemId: string;
+  variantId?: string;
+  variantName?: string;
   menuItemName: string;
   price: number;
   quantity: number;
@@ -63,6 +65,7 @@ export interface PublicTable {
 export interface CreateOrderPayload {
   items: {
     menuItemId: string;
+    variantId?: string;
     quantity: number;
     isSpicy: boolean;
     note: string;

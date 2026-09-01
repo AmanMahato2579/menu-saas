@@ -6,7 +6,7 @@ import { useParams } from "next/navigation";
 import { formatCurrency } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import MenuItemModal from "@/components/customer/MenuItemModal";
-import { ShoppingCart, ChevronRight, Star } from "lucide-react";
+import { ShoppingCart, ChevronRight, BellRing, Loader2 } from "lucide-react";
 import type { CartItem } from "@/types";
 
 interface Restaurant {
@@ -31,6 +31,7 @@ interface MenuItem {
   hasSpicyOption: boolean;
   hasNoteOption: boolean;
   categoryId: string;
+  variants?: { id: string; name: string; price: string }[];
 }
 
 interface Category {
@@ -54,7 +55,7 @@ interface TableSession {
 interface Props {
   restaurant: Restaurant;
   table: { id: string; tableNumber: number };
-  tableSession: TableSession;
+  tableSession: TableSession | null;
   categories: Category[];
 }
 
@@ -73,9 +74,12 @@ function getOrCreateCustomerToken(): string {
 
 export default function CustomerMenu({ restaurant, table, tableSession, categories }: Props) {
   const params = useParams();
+  const [customerName, setCustomerName] = useState("");
+  const [starting, setStarting] = useState(false);
+  const [calling, setCalling] = useState(false);
   const [cart, setCart] = useState<CartItem[]>(() => {
     if (typeof window === "undefined") return [];
-    const saved = localStorage.getItem(CART_KEY(tableSession.id));
+    const saved = tableSession && localStorage.getItem(CART_KEY(tableSession.id));
     if (saved) {
       try { return JSON.parse(saved) as CartItem[]; } catch {}
     }
@@ -90,7 +94,7 @@ export default function CustomerMenu({ restaurant, table, tableSession, categori
   // Save cart to localStorage
   const updateCart = (newCart: CartItem[]) => {
     setCart(newCart);
-    localStorage.setItem(CART_KEY(tableSession.id), JSON.stringify(newCart));
+    if (tableSession) localStorage.setItem(CART_KEY(tableSession.id), JSON.stringify(newCart));
   };
 
   const addToCart = (item: CartItem) => {
@@ -105,7 +109,7 @@ export default function CustomerMenu({ restaurant, table, tableSession, categori
       } else {
         newCart = [...prev, item];
       }
-      localStorage.setItem(CART_KEY(tableSession.id), JSON.stringify(newCart));
+      if (tableSession) localStorage.setItem(CART_KEY(tableSession.id), JSON.stringify(newCart));
       return newCart;
     });
     setSelectedItem(null);
@@ -138,6 +142,31 @@ export default function CustomerMenu({ restaurant, table, tableSession, categori
   }, [categories]);
 
   const baseUrl = `/r/${params.restaurantSlug}/t/${params.tableToken}`;
+
+  const startSession = async () => {
+    setStarting(true);
+    try {
+      const res = await fetch(`/api/customer/tables/${params.tableToken}/session`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ customerName }) });
+      if (!res.ok) throw new Error();
+      window.location.reload();
+    } finally { setStarting(false); }
+  };
+  const callForHelp = async () => {
+    if (!tableSession || calling) return;
+    setCalling(true);
+    try { const res = await fetch(`/api/customer/sessions/${tableSession.id}/assist`, { method: "POST" }); if (res.ok) alert("Your server has been notified."); } finally { setCalling(false); }
+  };
+
+  if (!tableSession) return (
+    <div className="min-h-screen bg-orange-50 flex items-center justify-center p-5">
+      <div className="max-w-sm w-full bg-white rounded-3xl shadow-xl p-7 text-center">
+        <div className="text-4xl mb-3">🍽️</div><h1 className="text-2xl font-bold">Welcome to {restaurant.name}</h1>
+        <p className="text-gray-500 mt-2">You are at Table {table.tableNumber}. Start when you are ready and we’ll let the team know you’ve arrived.</p>
+        <input value={customerName} onChange={(e) => setCustomerName(e.target.value)} maxLength={80} placeholder="Your name (optional)" className="mt-5 w-full rounded-xl border px-4 py-3" />
+        <Button onClick={startSession} disabled={starting} className="w-full mt-3 h-12 bg-orange-500 hover:bg-orange-600 text-white font-bold">{starting ? <Loader2 className="animate-spin" /> : "Start session"}</Button>
+      </div>
+    </div>
+  );
 
   return (
     <div className="min-h-screen bg-gray-50 pb-32">
@@ -247,7 +276,7 @@ export default function CustomerMenu({ restaurant, table, tableSession, categori
                                   ? parseFloat(item.price) - (parseFloat(item.price) * item.discountPercent / 100)
                                   : item.price,
                                 restaurant.currency
-                              )}
+                          )}
                             </p>
                           </div>
                           <button
@@ -268,6 +297,9 @@ export default function CustomerMenu({ restaurant, table, tableSession, categori
 
         {/* Nav links */}
         <div className="px-4 mt-8 space-y-2">
+          <button onClick={callForHelp} disabled={calling} className="w-full flex items-center justify-between p-4 bg-orange-50 text-orange-700 rounded-2xl border border-orange-200 font-medium">
+            <span className="flex items-center gap-2"><BellRing className="w-5 h-5" /> Call for assistance</span><span className="text-xs">{calling ? "Sending…" : "Always available"}</span>
+          </button>
           <Link
             href={`${baseUrl}/orders`}
             className="flex items-center justify-between p-4 bg-white rounded-2xl border shadow-sm hover:shadow-md transition-shadow"

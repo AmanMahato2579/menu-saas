@@ -19,6 +19,7 @@ export default async function TablesPage() {
           tableSessions: { where: { status: "ACTIVE" } },
         },
       },
+      tableSessions: { where: { status: "ACTIVE" }, select: { id: true, customerName: true, applyTax: true, applyServiceCharge: true } },
     },
   });
 

@@ -80,6 +80,20 @@ export default function SuperAdminClient({ restaurants }: Props) {
       toast({ title: "Failed to delete", variant: "destructive" });
     }
   };
+  const resetPassword = async (id: string) => {
+    const password = window.prompt("Set a new temporary password for this restaurant owner (minimum 8 characters):");
+    if (!password) return;
+    const res = await fetch(`/api/super-admin/restaurants/${id}/reset-password`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ password }) });
+    toast(res.ok ? { title: "Owner password reset", variant: "success" } : { title: "Could not reset password", variant: "destructive" });
+  };
+  const editRestaurant = async (restaurant: Restaurant) => {
+    const name = window.prompt("Restaurant name", restaurant.name); if (!name) return;
+    const phone = window.prompt("Phone", restaurant.phone ?? ""); if (phone === null) return;
+    const address = window.prompt("Address", restaurant.address ?? ""); if (address === null) return;
+    const res = await fetch(`/api/super-admin/restaurants/${restaurant.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name, phone: phone || null, address: address || null }) });
+    if (res.ok) { toast({ title: "Restaurant updated", variant: "success" }); startTransition(() => router.refresh()); }
+    else toast({ title: "Could not update restaurant", variant: "destructive" });
+  };
 
   const onSubmit = async (data: RestaurantForm) => {
     const res = await fetch("/api/super-admin/restaurants", {
@@ -230,6 +244,7 @@ export default function SuperAdminClient({ restaurants }: Props) {
                 </div>
               </div>
               <div className="flex flex-col gap-2 shrink-0">
+                <button onClick={() => editRestaurant(r)} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border border-white/20 text-gray-200 hover:bg-white/10"><Pencil className="w-3.5 h-3.5" /> Edit details</button>
                 <button
                   onClick={() => toggleActive(r.id, r.isActive)}
                   className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
@@ -240,6 +255,7 @@ export default function SuperAdminClient({ restaurants }: Props) {
                 >
                   {r.isActive ? <><XCircle className="w-3.5 h-3.5" />Deactivate</> : <><CheckCircle className="w-3.5 h-3.5" />Activate</>}
                 </button>
+                <button onClick={() => resetPassword(r.id)} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border border-orange-500/30 text-orange-300 hover:bg-orange-500/10"><Users className="w-3.5 h-3.5" /> Reset password</button>
                 <button
                   onClick={() => setConfirmDelete(confirmDelete === r.id ? null : r.id)}
                   className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border border-red-500/20 text-red-400 hover:bg-red-500/10 transition-colors"

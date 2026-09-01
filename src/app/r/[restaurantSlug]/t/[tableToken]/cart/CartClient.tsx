@@ -84,6 +84,7 @@ export default function CartClient({ restaurant, table, tableSession }: Props) {
           customerToken,
           items: cart.map((i) => ({
             menuItemId: i.menuItemId,
+            variantId: i.variantId,
             quantity: i.quantity,
             isSpicy: i.isSpicy,
             note: i.note,
@@ -145,6 +146,7 @@ export default function CartClient({ restaurant, table, tableSession }: Props) {
                 <div className="flex items-start justify-between gap-2">
                   <div className="flex-1">
                     <p className="font-semibold text-gray-900">{item.menuItemName}</p>
+                    {item.variantName && <p className="text-xs text-gray-500">{item.variantName}</p>}
                     {item.isSpicy && <p className="text-xs text-red-500 mt-0.5">🌶️ Spicy</p>}
                     {item.note && <p className="text-xs text-gray-400 italic mt-0.5">&quot;{item.note}&quot;</p>}
                   </div>

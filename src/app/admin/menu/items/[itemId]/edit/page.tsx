@@ -16,6 +16,7 @@ export default async function EditMenuItemPage({ params }: Props) {
   const [item, categories] = await Promise.all([
     prisma.menuItem.findFirst({
       where: { id: itemId, restaurantId: user.restaurantId! },
+      include: { variants: true },
     }),
     prisma.category.findMany({
       where: { restaurantId: user.restaurantId!, isActive: true },

@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { getRestaurantBySlug, getTableByToken, getOrCreateActiveSession, getPublicMenu } from "@/lib/db";
+import { getRestaurantBySlug, getTableByToken, getActiveSession, getPublicMenu } from "@/lib/db";
 import CustomerMenu from "./CustomerMenu";
 import type { Metadata } from "next";
 
@@ -53,8 +53,8 @@ export default async function MenuPage({ params }: Props) {
     );
   }
 
-  // 3. Get or create active session
-  const session = await getOrCreateActiveSession(table.id, restaurant.id);
+  // A scan is harmless; service starts only when the guest explicitly starts a session.
+  const session = await getActiveSession(table.id, restaurant.id);
 
   // 4. Fetch menu
   const categories = await getPublicMenu(restaurant.id);
@@ -63,7 +63,7 @@ export default async function MenuPage({ params }: Props) {
     <CustomerMenu
       restaurant={JSON.parse(JSON.stringify(restaurant))}
       table={JSON.parse(JSON.stringify(table))}
-      tableSession={JSON.parse(JSON.stringify(session))}
+      tableSession={session ? JSON.parse(JSON.stringify(session)) : null}
       categories={JSON.parse(JSON.stringify(categories))}
     />
   );

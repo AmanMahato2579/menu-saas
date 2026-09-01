@@ -1,5 +1,5 @@
-import { notFound } from "next/navigation";
-import { getRestaurantBySlug, getTableByToken, getOrCreateActiveSession } from "@/lib/db";
+import { notFound, redirect } from "next/navigation";
+import { getRestaurantBySlug, getTableByToken, getActiveSession } from "@/lib/db";
 import CartClient from "./CartClient";
 
 interface Props {
@@ -14,7 +14,8 @@ export default async function CartPage({ params }: Props) {
   if (!restaurant) notFound();
   const table = await getTableByToken(tableToken);
   if (!table || table.restaurantId !== restaurant.id || !table.isActive) notFound();
-  const session = await getOrCreateActiveSession(table.id, restaurant.id);
+  const session = await getActiveSession(table.id, restaurant.id);
+  if (!session) redirect(`/r/${restaurantSlug}/t/${tableToken}`);
 
   return (
     <CartClient

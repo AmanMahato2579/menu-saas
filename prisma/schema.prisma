@@ -33,6 +33,7 @@ enum TableSessionStatus {
 enum NotificationType {
   NEW_ORDER
   NEW_TABLE_SESSION
+  ASSISTANCE_REQUEST
   ORDER_STATUS
 }
 
@@ -69,6 +70,8 @@ model Restaurant {
   openingHours String?
   taxRate     Decimal @default(0) @db.Decimal(5, 2)
   isTaxEnabled Boolean @default(false)
+  serviceChargeRate Decimal @default(0) @db.Decimal(5, 2)
+  isServiceChargeEnabled Boolean @default(false)
   isActive    Boolean @default(true)
 
   users         User[]
@@ -112,6 +115,9 @@ model TableSession {
   restaurantId String
   tableId      String
   status       TableSessionStatus @default(ACTIVE)
+  customerName String?
+  applyTax     Boolean            @default(true)
+  applyServiceCharge Boolean      @default(true)
   startedAt    DateTime           @default(now())
   closedAt     DateTime?
 
@@ -161,12 +167,29 @@ model MenuItem {
   restaurant Restaurant  @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
   category   Category    @relation(fields: [categoryId], references: [id], onDelete: Cascade)
   orderItems OrderItem[]
+  variants   MenuItemVariant[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@index([restaurantId])
   @@index([categoryId])
+}
+
+model MenuItemVariant {
+  id         String   @id @default(cuid())
+  menuItemId String
+  name       String
+  price      Decimal  @db.Decimal(10, 2)
+  isAvailable Boolean @default(true)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  menuItem MenuItem @relation(fields: [menuItemId], references: [id], onDelete: Cascade)
+  orderItems OrderItem[]
+
+  @@unique([menuItemId, name])
+  @@index([menuItemId])
 }
 
 
@@ -206,6 +229,8 @@ model OrderItem {
   orderId      String
   menuItemId   String
   menuItemName String  // snapshot at time of order
+  menuItemVariantId String?
+  variantName  String?
   quantity     Int
   unitPrice    Decimal @db.Decimal(10, 2) // snapshot at time of order
   subtotal     Decimal @db.Decimal(10, 2)
@@ -214,6 +239,7 @@ model OrderItem {
 
   order    Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
   menuItem MenuItem @relation(fields: [menuItemId], references: [id])
+  menuItemVariant MenuItemVariant? @relation(fields: [menuItemVariantId], references: [id])
 
   createdAt DateTime @default(now())
 }

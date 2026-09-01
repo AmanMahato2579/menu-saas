@@ -70,6 +70,7 @@ export default function OrdersClient({ orders, currentStatus, restaurantId }: Pr
   const [, startTransition] = useTransition();
 
   const updateStatus = async (orderId: string, newStatus: string) => {
+    if (newStatus === "COMPLETED" && !window.confirm("Mark this order completed? Confirm only after it has been served and payment/session handling is ready.")) return;
     setUpdatingId(orderId);
     try {
       const res = await fetch(`/api/admin/orders/${orderId}/status`, {
