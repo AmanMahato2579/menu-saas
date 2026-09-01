@@ -245,12 +245,9 @@ export async function getSessionBill(tableSessionId: string, restaurantId: strin
     orderBy: { createdAt: "asc" },
   });
 
-  const { subtotal } = orders.reduce(
-    (acc: any, order: any) => ({
-      subtotal: acc.subtotal + parseFloat(order.subtotal?.toString() || "0"),
-      taxAmount: 0, total: 0,
-    }),
-    { subtotal: 0, taxAmount: 0, total: 0 }
+  const subtotal = orders.reduce(
+    (sum, order) => sum + Number(order.subtotal),
+    0
   );
 
   const [restaurant, tableSession] = await Promise.all([

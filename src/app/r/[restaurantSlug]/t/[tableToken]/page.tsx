@@ -31,7 +31,7 @@ export default async function MenuPage({ params }: Props) {
         <div className="text-5xl mb-4">🔒</div>
         <h1 className="text-2xl font-bold text-gray-900 mb-2">Account Inactive</h1>
         <p className="text-gray-600 text-center max-w-sm">
-          This restaurant's menu is currently unavailable. Please contact the administrator to open it.
+          This restaurant&apos;s menu is currently unavailable. Please contact the administrator to open it.
         </p>
       </div>
     );
