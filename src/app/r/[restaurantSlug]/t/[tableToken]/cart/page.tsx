@@ -20,11 +20,21 @@ export default async function CartPage({ params }: Props) {
   return (
     <CartClient
       restaurant={{
-        ...JSON.parse(JSON.stringify(restaurant)),
-        taxRate: Number(restaurant.taxRate)
+        id: restaurant.id,
+        name: restaurant.name,
+        slug: restaurant.slug,
+        currency: restaurant.currency,
+        isTaxEnabled: restaurant.isTaxEnabled,
+        taxRate: Number(restaurant.taxRate),
+        isServiceChargeEnabled: restaurant.isServiceChargeEnabled,
+        serviceChargeRate: Number(restaurant.serviceChargeRate),
       }}
-      table={JSON.parse(JSON.stringify(table))}
-      tableSession={JSON.parse(JSON.stringify(session))}
+      table={{ id: table.id, tableNumber: table.tableNumber }}
+      tableSession={{
+        id: session.id,
+        applyTax: session.applyTax,
+        applyServiceCharge: session.applyServiceCharge,
+      }}
     />
   );
 }

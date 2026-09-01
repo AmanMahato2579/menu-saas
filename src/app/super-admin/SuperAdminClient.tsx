@@ -30,6 +30,7 @@ interface Restaurant {
   slug: string;
   phone: string | null;
   address: string | null;
+  tableLimit: number;
   isActive: boolean;
   createdAt: string;
   _count: { tables: number; users: number };
@@ -48,6 +49,8 @@ export default function SuperAdminClient({ restaurants }: Props) {
   const [showForm, setShowForm] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
+  const [editing, setEditing] = useState<Restaurant | null>(null);
+  const [editSaving, setEditSaving] = useState(false);
 
   const { register, handleSubmit, reset, watch, formState: { errors, isSubmitting } } =
     useForm<RestaurantForm>({ resolver: zodResolver(restaurantSchema) as unknown as Resolver<RestaurantForm>, defaultValues: { tableCount: 5 } });
@@ -86,13 +89,16 @@ export default function SuperAdminClient({ restaurants }: Props) {
     const res = await fetch(`/api/super-admin/restaurants/${id}/reset-password`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ password }) });
     toast(res.ok ? { title: "Owner password reset", variant: "success" } : { title: "Could not reset password", variant: "destructive" });
   };
-  const editRestaurant = async (restaurant: Restaurant) => {
-    const name = window.prompt("Restaurant name", restaurant.name); if (!name) return;
-    const phone = window.prompt("Phone", restaurant.phone ?? ""); if (phone === null) return;
-    const address = window.prompt("Address", restaurant.address ?? ""); if (address === null) return;
-    const res = await fetch(`/api/super-admin/restaurants/${restaurant.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name, phone: phone || null, address: address || null }) });
+  const editRestaurant = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!editing) return;
+    const form = new FormData(event.currentTarget);
+    setEditSaving(true);
+    const res = await fetch(`/api/super-admin/restaurants/${editing.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: form.get("name"), phone: form.get("phone") || null, address: form.get("address") || null, tableLimit: Number(form.get("tableLimit")) }) });
+    setEditSaving(false);
     if (res.ok) { toast({ title: "Restaurant updated", variant: "success" }); startTransition(() => router.refresh()); }
     else toast({ title: "Could not update restaurant", variant: "destructive" });
+    if (res.ok) setEditing(null);
   };
 
   const onSubmit = async (data: RestaurantForm) => {
@@ -208,6 +214,17 @@ export default function SuperAdminClient({ restaurants }: Props) {
         <h2 className="text-lg font-semibold text-gray-300">All Restaurants</h2>
         {restaurants.map((r) => (
           <div key={r.id} className="bg-white/5 border border-white/10 rounded-xl p-5">
+            {editing?.id === r.id && (
+              <form onSubmit={editRestaurant} className="mb-4 grid grid-cols-1 md:grid-cols-2 gap-3 rounded-xl border border-orange-500/30 bg-orange-500/10 p-4">
+                <p className="md:col-span-2 text-sm font-semibold text-orange-200">Edit restaurant and QR table limit</p>
+                <input name="name" defaultValue={r.name} required className={inputCls} placeholder="Restaurant name" />
+                <input name="phone" defaultValue={r.phone ?? ""} className={inputCls} placeholder="Phone" />
+                <input name="address" defaultValue={r.address ?? ""} className={inputCls} placeholder="Address" />
+                <input name="tableLimit" type="number" min="1" max="200" defaultValue={r.tableLimit} required className={inputCls} placeholder="QR table limit" />
+                <p className="md:col-span-2 text-xs text-orange-200/80">The limit controls the maximum number of QR tables the restaurant can create. It cannot be set below the existing table count.</p>
+                <div className="md:col-span-2 flex gap-2"><button disabled={editSaving} className="px-4 py-2 rounded-lg bg-orange-500 text-sm font-medium text-white">{editSaving ? "Saving…" : "Save changes"}</button><button type="button" onClick={() => setEditing(null)} className="px-4 py-2 rounded-lg border border-white/20 text-sm">Cancel</button></div>
+              </form>
+            )}
             {/* Confirm delete overlay */}
             {confirmDelete === r.id && (
               <div className="mb-4 p-3 bg-red-500/10 border border-red-500/30 rounded-xl flex items-center justify-between gap-3">
@@ -238,13 +255,13 @@ export default function SuperAdminClient({ restaurants }: Props) {
                 </div>
                 <p className="text-xs text-gray-400">/{r.slug}</p>
                 <div className="flex items-center gap-3 mt-1 text-xs text-gray-400 flex-wrap">
-                  <span className="flex items-center gap-1"><QrCode className="w-3 h-3" /> {r._count.tables} tables</span>
+                  <span className="flex items-center gap-1"><QrCode className="w-3 h-3" /> {r._count.tables} / {r.tableLimit} QR tables</span>
                   <span className="flex items-center gap-1"><Users className="w-3 h-3" /> {r._count.users} users</span>
                   {r.phone && <span>📞 {r.phone}</span>}
                 </div>
               </div>
               <div className="flex flex-col gap-2 shrink-0">
-                <button onClick={() => editRestaurant(r)} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border border-white/20 text-gray-200 hover:bg-white/10"><Pencil className="w-3.5 h-3.5" /> Edit details</button>
+                <button onClick={() => setEditing(r)} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border border-white/20 text-gray-200 hover:bg-white/10"><Pencil className="w-3.5 h-3.5" /> Edit details</button>
                 <button
                   onClick={() => toggleActive(r.id, r.isActive)}
                   className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${

@@ -72,6 +72,7 @@ model Restaurant {
   isTaxEnabled Boolean @default(false)
   serviceChargeRate Decimal @default(0) @db.Decimal(5, 2)
   isServiceChargeEnabled Boolean @default(false)
+  tableLimit  Int     @default(20)
   isActive    Boolean @default(true)
 
   users         User[]

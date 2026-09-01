@@ -180,6 +180,14 @@ export default function OrdersPageClient({ restaurant, table, orders: initialOrd
         {/* Bill CTA */}
         {orders.length > 0 && (
           <Link
+            href={baseUrl}
+            className="block border-2 border-orange-500 text-orange-600 rounded-2xl p-4 text-center font-bold hover:bg-orange-50 transition-colors"
+          >
+            Add more food
+          </Link>
+        )}
+        {orders.length > 0 && (
+          <Link
             href={`${baseUrl}/bill`}
             className="block bg-orange-500 text-white rounded-2xl p-4 text-center font-bold hover:bg-orange-600 transition-colors shadow-lg shadow-orange-500/20 mt-4"
           >

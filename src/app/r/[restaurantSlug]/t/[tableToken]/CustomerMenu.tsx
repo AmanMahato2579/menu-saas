@@ -1,12 +1,12 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { formatCurrency } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import MenuItemModal from "@/components/customer/MenuItemModal";
-import { ShoppingCart, ChevronRight, BellRing, Loader2 } from "lucide-react";
+import { ShoppingCart, ChevronRight, BellRing, Loader2, AlertCircle } from "lucide-react";
 import type { CartItem } from "@/types";
 
 interface Restaurant {
@@ -87,7 +87,25 @@ export default function CustomerMenu({ restaurant, table, tableSession, categori
   });
   const [selectedItem, setSelectedItem] = useState<MenuItem | null>(null);
   const [activeCategory, setActiveCategory] = useState<string>(categories[0]?.id ?? "");
+  const [sessionEnded, setSessionEnded] = useState(false);
   const categoryRefs = useRef<Record<string, HTMLDivElement | null>>({});
+
+  // Poll for session status — detect when owner ends session mid-browse
+  const checkSession = useCallback(async () => {
+    if (!tableSession) return;
+    try {
+      const res = await fetch(`/api/customer/sessions/${tableSession.id}/orders`, { cache: "no-store" });
+      if (res.status === 404 || res.status === 410) {
+        setSessionEnded(true);
+      }
+    } catch { /* network errors are non-fatal */ }
+  }, [tableSession]);
+
+  useEffect(() => {
+    if (!tableSession) return;
+    const id = setInterval(checkSession, 20_000); // every 20 seconds
+    return () => clearInterval(id);
+  }, [tableSession, checkSession]);
 
   // (cart is initialized from localStorage in the state initializer)
 
@@ -164,6 +182,21 @@ export default function CustomerMenu({ restaurant, table, tableSession, categori
         <p className="text-gray-500 mt-2">You are at Table {table.tableNumber}. Start when you are ready and we’ll let the team know you’ve arrived.</p>
         <input value={customerName} onChange={(e) => setCustomerName(e.target.value)} maxLength={80} placeholder="Your name (optional)" className="mt-5 w-full rounded-xl border px-4 py-3" />
         <Button onClick={startSession} disabled={starting} className="w-full mt-3 h-12 bg-orange-500 hover:bg-orange-600 text-white font-bold">{starting ? <Loader2 className="animate-spin" /> : "Start session"}</Button>
+      </div>
+    </div>
+  );
+
+  if (sessionEnded) return (
+    <div className="min-h-screen bg-orange-50 flex items-center justify-center p-5">
+      <div className="max-w-sm w-full bg-white rounded-3xl shadow-xl p-7 text-center">
+        <div className="w-16 h-16 rounded-2xl bg-orange-100 flex items-center justify-center mx-auto mb-4">
+          <AlertCircle className="w-8 h-8 text-orange-500" />
+        </div>
+        <h1 className="text-xl font-bold text-gray-900">Session Ended</h1>
+        <p className="text-gray-500 mt-2 text-sm">
+          The restaurant has closed this table session. Thank you for dining with us!
+          If you wish to start a new session, please ask the staff.
+        </p>
       </div>
     </div>
   );

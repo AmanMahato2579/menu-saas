@@ -16,8 +16,12 @@ export async function PATCH(
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
   const { restaurantId } = await params;
-  const data = z.object({ name: z.string().min(2).max(200).optional(), phone: z.string().max(50).nullable().optional(), address: z.string().max(500).nullable().optional(), description: z.string().max(1000).nullable().optional(), isActive: z.boolean().optional() }).safeParse(await req.json());
+  const data = z.object({ name: z.string().min(2).max(200).optional(), phone: z.string().max(50).nullable().optional(), address: z.string().max(500).nullable().optional(), description: z.string().max(1000).nullable().optional(), tableLimit: z.number().int().min(1).max(200).optional(), isActive: z.boolean().optional() }).safeParse(await req.json());
   if (!data.success) return NextResponse.json({ error: data.error.flatten() }, { status: 400 });
+  if (data.data.tableLimit !== undefined) {
+    const tableCount = await prisma.table.count({ where: { restaurantId } });
+    if (data.data.tableLimit < tableCount) return NextResponse.json({ error: `The limit cannot be lower than the ${tableCount} existing QR tables.` }, { status: 400 });
+  }
   const updated = await prisma.restaurant.update({
     where: { id: restaurantId },
     data: data.data,
