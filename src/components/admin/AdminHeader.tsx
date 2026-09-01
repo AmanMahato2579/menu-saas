@@ -1,13 +1,14 @@
 "use client";
 
-import { Bell } from "lucide-react";
 import type { AdminUser } from "@/types";
+import NotificationBell from "./NotificationBell";
 
 interface AdminHeaderProps {
   user: AdminUser;
+  initialUnreadCount?: number;
 }
 
-export default function AdminHeader({ user }: AdminHeaderProps) {
+export default function AdminHeader({ user, initialUnreadCount = 0 }: AdminHeaderProps) {
   return (
     <header className="bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between shrink-0">
       <div>
@@ -24,11 +25,7 @@ export default function AdminHeader({ user }: AdminHeaderProps) {
         </p>
       </div>
       <div className="flex items-center gap-3">
-        <div className="relative">
-          <button className="w-9 h-9 rounded-lg border border-gray-200 flex items-center justify-center hover:bg-gray-50 transition-colors">
-            <Bell className="w-4 h-4 text-gray-600" />
-          </button>
-        </div>
+        <NotificationBell initialUnreadCount={initialUnreadCount} />
         <div className="w-9 h-9 rounded-lg bg-orange-500 flex items-center justify-center text-white font-semibold text-sm shadow">
           {user.name.charAt(0).toUpperCase()}
         </div>

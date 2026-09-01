@@ -13,6 +13,7 @@ import {
   Settings,
   LogOut,
   ChefHat,
+  Bell,
 } from "lucide-react";
 import InstallPWA from "./InstallPWA";
 
@@ -25,6 +26,7 @@ const navItems = [
   { href: "/admin/orders", label: "Orders", icon: ClipboardList },
   { href: "/admin/menu", label: "Menu", icon: UtensilsCrossed },
   { href: "/admin/tables", label: "Tables", icon: QrCode },
+  { href: "/admin/notifications", label: "Notifications", icon: Bell },
   { href: "/admin/settings", label: "Settings", icon: Settings },
 ];
 

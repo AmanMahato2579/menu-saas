@@ -31,9 +31,26 @@ export async function getOrCreateActiveSession(tableId: string, restaurantId: st
   });
   if (existing) return existing;
 
-  return prisma.tableSession.create({
+  const session = await prisma.tableSession.create({
     data: { tableId, restaurantId, status: "ACTIVE" },
   });
+
+  // Notify the restaurant admin that a customer scanned the QR code
+  const table = await prisma.table.findUnique({
+    where: { id: tableId },
+    select: { tableNumber: true },
+  });
+  await prisma.notification.create({
+    data: {
+      restaurantId,
+      type: "NEW_TABLE_SESSION",
+      title: "New customer at your table",
+      message: `Customer scanned QR code at Table ${table?.tableNumber ?? tableId}.`,
+      link: "/admin/tables",
+    },
+  });
+
+  return session;
 }
 
 // ─── Menu queries ─────────────────────────────────────────────────────────────
@@ -146,6 +163,23 @@ export async function createOrder(input: CreateOrderInput) {
       tableSession: {
         include: { table: true },
       },
+    },
+  });
+
+  // Notify the restaurant admin of the new order
+  const tableNumber = order.tableSession?.table?.tableNumber;
+  const itemSummary = order.orderItems
+    .map((i) => `${i.menuItemName} ×${i.quantity}`)
+    .join(", ");
+  await prisma.notification.create({
+    data: {
+      restaurantId,
+      type: "NEW_ORDER",
+      title: `New order #${orderNumber}`,
+      message: tableNumber
+        ? `Table ${tableNumber} — ${itemSummary}`
+        : itemSummary,
+      link: "/admin/orders",
     },
   });
 

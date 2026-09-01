@@ -30,6 +30,12 @@ enum TableSessionStatus {
   CLOSED
 }
 
+enum NotificationType {
+  NEW_ORDER
+  NEW_TABLE_SESSION
+  ORDER_STATUS
+}
+
 // ─── Users ───────────────────────────────────────────────────────────────────
 
 model User {
@@ -71,6 +77,7 @@ model Restaurant {
   menuItems     MenuItem[]
   tableSessions TableSession[]
   orders        Order[]
+  notifications Notification[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -216,4 +223,24 @@ model OrderItem {
 model OrderSequence {
   restaurantId String @id
   lastNumber   Int    @default(1000)
+}
+
+// ─── Notification ─────────────────────────────────────────────────────────────
+
+model Notification {
+  id           String           @id @default(cuid())
+  restaurantId String
+  type         NotificationType
+  title        String
+  message      String
+  link         String?
+  read         Boolean          @default(false)
+
+  createdAt DateTime @default(now())
+
+  restaurant Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+
+  @@index([restaurantId, read])
+  @@index([restaurantId])
+  @@index([restaurantId, createdAt])
 }
