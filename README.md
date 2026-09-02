@@ -228,6 +228,18 @@ For production environments, use Prisma migrations:
 npx prisma migrate deploy
 ```
 
+### After Pulling New Changes
+
+If you pull new code that includes schema changes (new fields, models, etc.), the local database will be out of sync. Run:
+
+```bash
+npx prisma db push
+npx prisma generate
+rm -rf .next
+```
+
+Then restart the dev server. This syncs the database schema, regenerates the Prisma Client, and clears the stale Next.js cache.
+
 ---
 
 ## 5. Seed the Database
