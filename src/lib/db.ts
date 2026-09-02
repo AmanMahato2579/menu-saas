@@ -24,20 +24,15 @@ export async function getTableByToken(qrToken: string) {
   });
 }
 
-export async function getActiveSession(tableId: string, restaurantId: string) {
-  return prisma.tableSession.findFirst({
+export async function getOrCreateActiveSession(tableId: string, restaurantId: string) {
+  const existing = await prisma.tableSession.findFirst({
     where: { tableId, restaurantId, status: "ACTIVE" },
     orderBy: { startedAt: "desc" },
   });
-}
-
-/** A session is deliberately created only after the guest presses Start. */
-export async function startTableSession(tableId: string, restaurantId: string, customerName?: string) {
-  const existing = await getActiveSession(tableId, restaurantId);
   if (existing) return existing;
 
   const session = await prisma.tableSession.create({
-    data: { tableId, restaurantId, status: "ACTIVE", customerName: customerName?.trim() || null },
+    data: { tableId, restaurantId, status: "ACTIVE" },
   });
 
   // Notify the restaurant admin that a customer scanned the QR code
@@ -49,8 +44,8 @@ export async function startTableSession(tableId: string, restaurantId: string, c
     data: {
       restaurantId,
       type: "NEW_TABLE_SESSION",
-      title: "Guest arrived — service needed",
-      message: `${customerName?.trim() ? `${customerName.trim()} is` : "A guest is"} waiting at Table ${table?.tableNumber ?? tableId}. Please greet them.`,
+      title: "New customer at your table",
+      message: `Customer scanned QR code at Table ${table?.tableNumber ?? tableId}.`,
       link: "/admin/tables",
     },
   });
@@ -68,7 +63,6 @@ export async function getPublicMenu(restaurantId: string) {
       menuItems: {
         where: { restaurantId, isAvailable: true },
         orderBy: { createdAt: "asc" },
-        include: { variants: { where: { isAvailable: true }, orderBy: { createdAt: "asc" } } },
       },
     },
   });
@@ -91,7 +85,6 @@ export interface CreateOrderInput {
   customerToken: string;
   items: {
     menuItemId: string;
-    variantId?: string | null;
     quantity: number;
     isSpicy: boolean;
     note: string;
@@ -102,7 +95,7 @@ export async function createOrder(input: CreateOrderInput) {
   const { restaurantId, tableSessionId, customerToken, items } = input;
 
   // 1. Validate all menu items belong to this restaurant and are available
-  const menuItemIds = [...new Set(items.map((i) => i.menuItemId))];
+  const menuItemIds = items.map((i) => i.menuItemId);
   const menuItems = await prisma.menuItem.findMany({
     where: {
       id: { in: menuItemIds },
@@ -122,20 +115,11 @@ export async function createOrder(input: CreateOrderInput) {
 
   // 2. Build order items with server-side prices
   const menuItemMap = new Map(menuItems.map((m) => [m.id, m]));
-  const variantIds = items.flatMap((item) => item.variantId ? [item.variantId] : []);
-  const variants = variantIds.length ? await prisma.menuItemVariant.findMany({
-    where: { id: { in: variantIds }, isAvailable: true },
-  }) : [];
-  const variantMap = new Map(variants.map((variant) => [variant.id, variant]));
 
   let subtotalSum = new Prisma.Decimal(0);
   const orderItemsData = items.map((item) => {
     const menuItem = menuItemMap.get(item.menuItemId)!;
-    const variant = item.variantId ? variantMap.get(item.variantId) : undefined;
-    if (item.variantId && (!variant || variant.menuItemId !== menuItem.id)) {
-      throw new Error("One or more item variants are unavailable or invalid.");
-    }
-    const basePrice = variant?.price ?? menuItem.price;
+    const basePrice = menuItem.price;
     const discountMultiplier = new Prisma.Decimal(100 - menuItem.discountPercent).div(100);
     const unitPrice = basePrice.mul(discountMultiplier);
     const subtotal = unitPrice.mul(item.quantity);
@@ -143,8 +127,6 @@ export async function createOrder(input: CreateOrderInput) {
     return {
       menuItemId: item.menuItemId,
       menuItemName: menuItem.name,
-      menuItemVariantId: variant?.id,
-      variantName: variant?.name,
       quantity: item.quantity,
       unitPrice,
       subtotal,
@@ -245,18 +227,16 @@ export async function getSessionBill(tableSessionId: string, restaurantId: strin
     orderBy: { createdAt: "asc" },
   });
 
-  const subtotal = orders.reduce(
-    (sum, order) => sum + Number(order.subtotal),
-    0
+  const { subtotal, taxAmount, total } = orders.reduce(
+    (acc: any, order: any) => ({
+      subtotal: acc.subtotal + parseFloat(order.subtotal?.toString() || "0"),
+      taxAmount: acc.taxAmount + parseFloat(order.taxAmount?.toString() || "0"),
+      total: acc.total + parseFloat(order.total?.toString() || "0"),
+    }),
+    { subtotal: 0, taxAmount: 0, total: 0 }
   );
 
-  const [restaurant, tableSession] = await Promise.all([
-    prisma.restaurant.findUnique({ where: { id: restaurantId }, select: { isTaxEnabled: true, taxRate: true, isServiceChargeEnabled: true, serviceChargeRate: true } }),
-    prisma.tableSession.findFirst({ where: { id: tableSessionId, restaurantId }, select: { applyTax: true, applyServiceCharge: true } }),
-  ]);
-  const taxAmount = restaurant?.isTaxEnabled && tableSession?.applyTax ? subtotal * Number(restaurant.taxRate) / 100 : 0;
-  const serviceChargeAmount = restaurant?.isServiceChargeEnabled && tableSession?.applyServiceCharge ? subtotal * Number(restaurant.serviceChargeRate) / 100 : 0;
-  return { orders, subtotal, taxAmount, serviceChargeAmount, total: subtotal + taxAmount + serviceChargeAmount };
+  return { orders, subtotal, taxAmount, total };
 }
 
 // ─── Admin queries ────────────────────────────────────────────────────────────

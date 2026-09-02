@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useForm, useFieldArray } from "react-hook-form";
+import { useForm } from "react-hook-form";
 import type { Resolver } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -26,7 +26,6 @@ const itemSchema = z.object({
   hasNoteOption: z.boolean().default(true),
   ingredients: z.string().optional(),
   discountPercent: z.coerce.number().int().min(0).max(100).default(0),
-  variants: z.array(z.object({ name: z.string().min(1, "Variant name is required"), price: z.coerce.number().positive("Variant price must be positive") })).default([]),
 });
 
 type ItemForm = z.infer<typeof itemSchema>;
@@ -48,7 +47,6 @@ interface MenuItem {
   isAvailable: boolean;
   hasSpicyOption: boolean;
   hasNoteOption: boolean;
-  variants?: { id: string; name: string; price: string }[];
 }
 
 interface Props {
@@ -63,7 +61,6 @@ export default function MenuItemForm({ categories, defaultCategoryId, item }: Pr
 
   const {
     register,
-    control,
     handleSubmit,
     setValue,
     watch,
@@ -81,10 +78,8 @@ export default function MenuItemForm({ categories, defaultCategoryId, item }: Pr
       isAvailable: item?.isAvailable ?? true,
       hasSpicyOption: item?.hasSpicyOption ?? false,
       hasNoteOption: item?.hasNoteOption ?? true,
-      variants: item?.variants?.map((variant) => ({ name: variant.name, price: Number(variant.price) })) ?? [],
     },
   });
-  const { fields: variants, append: addVariant, remove: removeVariant } = useFieldArray({ control, name: "variants" });
 
   const isAvailable = watch("isAvailable");
   const hasSpicyOption = watch("hasSpicyOption");
@@ -163,12 +158,6 @@ export default function MenuItemForm({ categories, defaultCategoryId, item }: Pr
               className="appearance-none [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
             />
             {errors.price && <p className="text-red-500 text-xs">{errors.price.message}</p>}
-          </div>
-
-          <div className="space-y-2 rounded-xl border bg-gray-50 p-3">
-            <div className="flex items-center justify-between"><div><Label>Variants (optional)</Label><p className="text-xs text-gray-400">For example: Veg, Chicken, Buff — each with its own price.</p></div><Button type="button" variant="outline" size="sm" onClick={() => addVariant({ name: "", price: 0 })}>Add variant</Button></div>
-            {variants.map((variant, index) => <div key={variant.id} className="flex gap-2"><Input placeholder="Variant name" {...register(`variants.${index}.name`)} /><Input type="number" min="0" step="1" placeholder="Price" {...register(`variants.${index}.price`)} /><Button type="button" variant="outline" onClick={() => removeVariant(index)}>Remove</Button></div>)}
-            {errors.variants && <p className="text-red-500 text-xs">Check variant names and prices.</p>}
           </div>
 
           {/* Image URL */}

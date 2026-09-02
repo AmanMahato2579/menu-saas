@@ -29,14 +29,12 @@ interface Restaurant {
   currency: string;
   isTaxEnabled: boolean;
   taxRate: number;
-  isServiceChargeEnabled: boolean;
-  serviceChargeRate: number;
 }
 
 interface Props {
   restaurant: Restaurant;
   table: { id: string; tableNumber: number };
-  tableSession: { id: string; applyTax: boolean; applyServiceCharge: boolean };
+  tableSession: { id: string };
 }
 
 export default function CartClient({ restaurant, table, tableSession }: Props) {
@@ -69,11 +67,8 @@ export default function CartClient({ restaurant, table, tableSession }: Props) {
   };
 
   const subtotal = cart.reduce((sum, i) => sum + i.price * i.quantity, 0);
-  const taxAmount = restaurant.isTaxEnabled && tableSession.applyTax
-    ? subtotal * (restaurant.taxRate / 100) : 0;
-  const serviceChargeAmount = restaurant.isServiceChargeEnabled && tableSession.applyServiceCharge
-    ? subtotal * (restaurant.serviceChargeRate / 100) : 0;
-  const total = subtotal + taxAmount + serviceChargeAmount;
+  const taxAmount = restaurant.isTaxEnabled ? subtotal * (restaurant.taxRate / 100) : 0;
+  const total = subtotal + taxAmount;
 
   const placeOrder = async () => {
     if (cart.length === 0) return;
@@ -89,7 +84,6 @@ export default function CartClient({ restaurant, table, tableSession }: Props) {
           customerToken,
           items: cart.map((i) => ({
             menuItemId: i.menuItemId,
-            variantId: i.variantId,
             quantity: i.quantity,
             isSpicy: i.isSpicy,
             note: i.note,
@@ -108,8 +102,7 @@ export default function CartClient({ restaurant, table, tableSession }: Props) {
       localStorage.setItem(CART_KEY(tableSession.id), "[]");
       setCart([]);
       toast({ title: "Order placed! 🎉", variant: "success", description: `Order #${order.orderNumber} received.` });
-      // Keep the guest in the active session so they can add more items later.
-      router.push(baseUrl);
+      router.push(`${baseUrl}/orders`);
     } catch {
       toast({ title: "Network error", variant: "destructive", description: "Please try again." });
     } finally {
@@ -152,7 +145,6 @@ export default function CartClient({ restaurant, table, tableSession }: Props) {
                 <div className="flex items-start justify-between gap-2">
                   <div className="flex-1">
                     <p className="font-semibold text-gray-900">{item.menuItemName}</p>
-                    {item.variantName && <p className="text-xs text-gray-500">{item.variantName}</p>}
                     {item.isSpicy && <p className="text-xs text-red-500 mt-0.5">🌶️ Spicy</p>}
                     {item.note && <p className="text-xs text-gray-400 italic mt-0.5">&quot;{item.note}&quot;</p>}
                   </div>
@@ -192,19 +184,13 @@ export default function CartClient({ restaurant, table, tableSession }: Props) {
                 <span>Subtotal ({cart.reduce((s, i) => s + i.quantity, 0)} items)</span>
                 <span>{formatCurrency(subtotal, restaurant.currency)}</span>
               </div>
-              {restaurant.isTaxEnabled && tableSession.applyTax && (
-                <div className="flex justify-between text-sm text-gray-500 mb-1">
-                  <span>VAT / Tax ({restaurant.taxRate}%)</span>
+              {restaurant.isTaxEnabled && (
+                <div className="flex justify-between text-sm text-gray-500 mb-2 border-b pb-2">
+                  <span>Tax ({restaurant.taxRate}%)</span>
                   <span>{formatCurrency(taxAmount, restaurant.currency)}</span>
                 </div>
               )}
-              {restaurant.isServiceChargeEnabled && tableSession.applyServiceCharge && (
-                <div className="flex justify-between text-sm text-gray-500 mb-1">
-                  <span>Service Charge ({restaurant.serviceChargeRate}%)</span>
-                  <span>{formatCurrency(serviceChargeAmount, restaurant.currency)}</span>
-                </div>
-              )}
-              <div className="flex justify-between font-bold text-gray-900 text-lg pt-2 border-t mt-2">
+              <div className="flex justify-between font-bold text-gray-900 text-lg pt-2">
                 <span>Total</span>
                 <span className="text-orange-600">{formatCurrency(total, restaurant.currency)}</span>
               </div>

@@ -23,8 +23,6 @@ const settingsSchema = z.object({
   logoUrl: z.string().url().optional().or(z.literal("")),
   taxRate: z.coerce.number().min(0).max(100).default(0),
   isTaxEnabled: z.boolean().default(false),
-  serviceChargeRate: z.coerce.number().min(0).max(100).default(0),
-  isServiceChargeEnabled: z.boolean().default(false),
 });
 
 type SettingsForm = z.infer<typeof settingsSchema>;
@@ -41,8 +39,6 @@ interface Restaurant {
   logoUrl: string | null;
   taxRate: number;
   isTaxEnabled: boolean;
-  serviceChargeRate: number;
-  isServiceChargeEnabled: boolean;
 }
 
 interface Props {
@@ -63,13 +59,10 @@ export default function SettingsClient({ restaurant }: Props) {
       logoUrl: restaurant.logoUrl ?? "",
       taxRate: restaurant.taxRate ?? 0,
       isTaxEnabled: restaurant.isTaxEnabled ?? false,
-      serviceChargeRate: restaurant.serviceChargeRate ?? 0,
-      isServiceChargeEnabled: restaurant.isServiceChargeEnabled ?? false,
     },
   });
 
   const isTaxEnabled = watch("isTaxEnabled");
-  const isServiceChargeEnabled = watch("isServiceChargeEnabled");
 
   const onSubmit = async (data: SettingsForm) => {
     const res = await fetch("/api/admin/settings", {
@@ -153,11 +146,6 @@ export default function SettingsClient({ restaurant }: Props) {
                   <p className="text-xs text-gray-400">e.g. 13 for 13% VAT. Will appear on cart and bill pages.</p>
                 </div>
               )}
-              <div className="flex items-center justify-between p-3 bg-gray-50 rounded-xl mt-3">
-                <div><p className="text-sm font-medium text-gray-700">Enable Service Charge</p><p className="text-xs text-gray-400 mt-0.5">Added as a separate line on bills</p></div>
-                <Switch checked={isServiceChargeEnabled} onCheckedChange={(val) => setValue("isServiceChargeEnabled", val)} />
-              </div>
-              {isServiceChargeEnabled && <div className="space-y-1.5 mt-3"><Label htmlFor="serviceChargeRate">Service Charge (%)</Label><Input id="serviceChargeRate" type="number" step="0.5" min="0" max="100" {...register("serviceChargeRate")} className="max-w-xs" /></div>}
             </div>
           </div>
 

@@ -19,8 +19,7 @@ interface MenuItem {
   isAvailable: boolean;
   hasSpicyOption: boolean;
   hasNoteOption: boolean;
-  discountPercent: number;
-  variants?: { id: string; name: string; price: string }[];
+  displayOrder: number;
 }
 
 interface Category {

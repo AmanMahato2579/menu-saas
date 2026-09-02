@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { getRestaurantBySlug, getTableByToken, getActiveSession, getPublicMenu } from "@/lib/db";
+import { getRestaurantBySlug, getTableByToken, getOrCreateActiveSession, getPublicMenu } from "@/lib/db";
 import CustomerMenu from "./CustomerMenu";
 import type { Metadata } from "next";
 
@@ -31,7 +31,7 @@ export default async function MenuPage({ params }: Props) {
         <div className="text-5xl mb-4">🔒</div>
         <h1 className="text-2xl font-bold text-gray-900 mb-2">Account Inactive</h1>
         <p className="text-gray-600 text-center max-w-sm">
-          This restaurant&apos;s menu is currently unavailable. Please contact the administrator to open it.
+          This restaurant's menu is currently unavailable. Please contact the administrator to open it.
         </p>
       </div>
     );
@@ -53,8 +53,8 @@ export default async function MenuPage({ params }: Props) {
     );
   }
 
-  // A scan is harmless; service starts only when the guest explicitly starts a session.
-  const session = await getActiveSession(table.id, restaurant.id);
+  // 3. Get or create active session
+  const session = await getOrCreateActiveSession(table.id, restaurant.id);
 
   // 4. Fetch menu
   const categories = await getPublicMenu(restaurant.id);
@@ -63,7 +63,7 @@ export default async function MenuPage({ params }: Props) {
     <CustomerMenu
       restaurant={JSON.parse(JSON.stringify(restaurant))}
       table={JSON.parse(JSON.stringify(table))}
-      tableSession={session ? JSON.parse(JSON.stringify(session)) : null}
+      tableSession={JSON.parse(JSON.stringify(session))}
       categories={JSON.parse(JSON.stringify(categories))}
     />
   );

@@ -1,5 +1,5 @@
-import { notFound, redirect } from "next/navigation";
-import { getRestaurantBySlug, getTableByToken, getActiveSession, getSessionBill } from "@/lib/db";
+import { notFound } from "next/navigation";
+import { getRestaurantBySlug, getTableByToken, getOrCreateActiveSession, getSessionBill } from "@/lib/db";
 import { formatCurrency } from "@/lib/utils";
 import Link from "next/link";
 import { ArrowLeft, Receipt, CreditCard } from "lucide-react";
@@ -16,9 +16,8 @@ export default async function BillPage({ params }: Props) {
   if (!restaurant) notFound();
   const table = await getTableByToken(tableToken);
   if (!table || table.restaurantId !== restaurant.id) notFound();
-  const session = await getActiveSession(table.id, restaurant.id);
-  if (!session) redirect(`/r/${restaurantSlug}/t/${tableToken}`);
-  const { orders, subtotal, taxAmount, serviceChargeAmount, total } = await getSessionBill(session.id, restaurant.id);
+  const session = await getOrCreateActiveSession(table.id, restaurant.id);
+  const { orders, subtotal, taxAmount, total } = await getSessionBill(session.id, restaurant.id);
 
   const baseUrl = `/r/${restaurantSlug}/t/${tableToken}`;
 
@@ -92,7 +91,6 @@ export default async function BillPage({ params }: Props) {
                   <span>{formatCurrency(taxAmount, restaurant.currency)}</span>
                 </div>
               )}
-              {serviceChargeAmount > 0 && <div className="flex justify-between text-sm text-gray-500"><span>Service charge ({restaurant.serviceChargeRate?.toString() || 0}%)</span><span>{formatCurrency(serviceChargeAmount, restaurant.currency)}</span></div>}
             </div>
 
             {/* Total */}

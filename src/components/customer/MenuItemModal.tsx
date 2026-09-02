@@ -17,7 +17,6 @@ interface MenuItem {
   discountPercent: number;
   hasSpicyOption: boolean;
   hasNoteOption: boolean;
-  variants?: { id: string; name: string; price: string }[];
 }
 
 interface Props {
@@ -31,20 +30,16 @@ export default function MenuItemModal({ item, currency, onClose, onAddToCart }: 
   const [quantity, setQuantity] = useState(1);
   const [isSpicy, setIsSpicy] = useState(false);
   const [note, setNote] = useState("");
-  const [variantId, setVariantId] = useState(item.variants?.[0]?.id ?? "");
 
   const basePrice = parseFloat(item.price);
-  const variant = item.variants?.find((entry) => entry.id === variantId);
   const price = item.discountPercent > 0 
-    ? parseFloat(variant?.price ?? item.price) * (1 - item.discountPercent / 100)
-    : parseFloat(variant?.price ?? item.price);
+    ? basePrice - (basePrice * item.discountPercent / 100) 
+    : basePrice;
   const total = price * quantity;
 
   const handleAdd = () => {
     onAddToCart({
       menuItemId: item.id,
-      variantId: variant?.id,
-      variantName: variant?.name,
       menuItemName: item.name,
       price,
       quantity,
@@ -71,7 +66,6 @@ export default function MenuItemModal({ item, currency, onClose, onAddToCart }: 
           <div className="w-full h-32 bg-gradient-to-r from-orange-100 to-amber-50 flex items-center justify-center text-5xl">
             🍽️
           </div>
-
         )}
 
         {/* Close */}
@@ -102,12 +96,6 @@ export default function MenuItemModal({ item, currency, onClose, onAddToCart }: 
               </p>
             </div>
           </div>
-
-          {item.variants && item.variants.length > 0 && (
-            <div><p className="text-sm font-semibold text-gray-700 mb-2">Choose variant</p><div className="grid grid-cols-2 gap-2">
-              {item.variants.map((entry) => <button key={entry.id} onClick={() => setVariantId(entry.id)} className={`rounded-xl border-2 p-3 text-left ${variantId === entry.id ? "border-orange-500 bg-orange-50" : "border-gray-200"}`}><p className="font-medium text-sm">{entry.name}</p><p className="text-xs text-gray-500">{formatCurrency(entry.price, currency)}</p></button>)}
-            </div></div>
-          )}
 
           {/* Quantity */}
           <div>

@@ -13,8 +13,6 @@ const settingsSchema = z.object({
   logoUrl: z.string().url().optional().nullable(),
   taxRate: z.coerce.number().min(0).max(100).optional(),
   isTaxEnabled: z.boolean().optional(),
-  serviceChargeRate: z.coerce.number().min(0).max(100).optional(),
-  isServiceChargeEnabled: z.boolean().optional(),
 });
 
 export async function PATCH(req: Request) {

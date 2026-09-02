@@ -15,7 +15,6 @@ const patchSchema = z.object({
   hasNoteOption: z.boolean().optional(),
   ingredients: z.string().optional().nullable(),
   discountPercent: z.coerce.number().int().min(0).max(100).optional(),
-  variants: z.array(z.object({ id: z.string().optional(), name: z.string().trim().min(1).max(50), price: z.coerce.number().positive(), isAvailable: z.boolean().optional() })).max(20).optional(),
 });
 
 async function getRestaurantId(): Promise<string | null> {
@@ -38,11 +37,9 @@ export async function PATCH(
   const parsed = patchSchema.safeParse(body);
   if (!parsed.success) return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
 
-  const { variants, ...rest } = parsed.data;
-  const updateData = { ...rest } as Prisma.MenuItemUpdateInput;
+  const updateData = { ...parsed.data } as Prisma.MenuItemUpdateInput;
   if (parsed.data.imageUrl === "") updateData.imageUrl = null;
 
-  if (variants) updateData.variants = { deleteMany: {}, create: variants.map(({ id: _id, ...variant }) => variant) };
   const updated = await prisma.menuItem.update({ where: { id: itemId }, data: updateData });
   return NextResponse.json(updated);
 }
