@@ -11,6 +11,7 @@ const orderSchema = z.object({
   items: z.array(
     z.object({
       menuItemId: z.string(),
+      variantId: z.string().optional(),
       quantity: z.number().int().positive(),
       isSpicy: z.boolean(),
       note: z.string(),
