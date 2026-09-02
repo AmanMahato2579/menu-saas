@@ -14,6 +14,7 @@ const itemSchema = z.object({
   hasNoteOption: z.boolean().default(true),
   ingredients: z.string().optional().nullable(),
   discountPercent: z.coerce.number().int().min(0).max(100).default(0),
+  variants: z.array(z.object({ name: z.string().trim().min(1).max(50), price: z.coerce.number().positive() })).max(20).default([]),
 });
 
 async function getRestaurantId(): Promise<string | null> {
@@ -40,6 +41,7 @@ export async function POST(req: Request) {
       ...parsed.data,
       restaurantId,
       imageUrl: parsed.data.imageUrl || null,
+      variants: { create: parsed.data.variants },
     },
   });
   return NextResponse.json(item, { status: 201 });

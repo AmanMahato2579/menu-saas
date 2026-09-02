@@ -31,12 +31,16 @@ export async function POST(req: Request) {
   const parsed = tableSchema.safeParse(body);
   if (!parsed.success) return NextResponse.json({ error: "Invalid data" }, { status: 400 });
 
-  const existing = await prisma.table.findFirst({
-    where: { restaurantId, tableNumber: parsed.data.tableNumber },
-  });
+  const [restaurant, existing, existingCount] = await Promise.all([
+    prisma.restaurant.findUnique({ where: { id: restaurantId }, select: { tableLimit: true } }),
+    prisma.table.findFirst({ where: { restaurantId, tableNumber: parsed.data.tableNumber } }),
+    prisma.table.count({ where: { restaurantId } }),
+  ]);
+  if (!restaurant) return NextResponse.json({ error: "Restaurant not found" }, { status: 404 });
   if (existing) {
     return NextResponse.json({ error: `Table ${parsed.data.tableNumber} already exists` }, { status: 409 });
   }
+  if (existingCount >= restaurant.tableLimit) return NextResponse.json({ error: `Table limit reached (${restaurant.tableLimit}). Contact the platform administrator to increase it.` }, { status: 403 });
 
   const table = await prisma.table.create({
     data: { restaurantId, tableNumber: parsed.data.tableNumber },

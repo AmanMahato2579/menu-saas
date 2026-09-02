@@ -25,6 +25,7 @@ interface Table {
   qrToken: string;
   isActive: boolean;
   _count: { tableSessions: number };
+  tableSessions: { id: string; customerName: string | null; applyTax: boolean; applyServiceCharge: boolean }[];
 }
 
 interface Props {
@@ -86,6 +87,10 @@ export default function TablesClient({ tables, restaurantSlug, restaurantId }: P
   const closeSession = async (tableId: string) => {
     await fetch(`/api/admin/tables/${tableId}/close-session`, { method: "POST" });
     toast({ title: "Table session closed", variant: "success" });
+    startTransition(() => router.refresh());
+  };
+  const toggleCharge = async (tableId: string, key: "applyTax" | "applyServiceCharge", value: boolean) => {
+    await fetch(`/api/admin/tables/${tableId}/session-charges`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ [key]: value }) });
     startTransition(() => router.refresh());
   };
 
@@ -158,6 +163,7 @@ export default function TablesClient({ tables, restaurantSlug, restaurantId }: P
           {tables.map((table) => {
             const qrUrl = getQRUrl(table.qrToken);
             const hasActiveSession = table._count.tableSessions > 0;
+            const activeSession = table.tableSessions[0];
 
             return (
               <Card key={table.id} className="hover:shadow-md transition-shadow overflow-hidden">
@@ -197,6 +203,7 @@ export default function TablesClient({ tables, restaurantSlug, restaurantId }: P
                   </p>
 
                   {/* Actions */}
+                  {activeSession && <div className="text-xs rounded-lg bg-gray-50 p-2 space-y-1"><p className="font-medium">Final bill charges</p><label className="flex gap-2"><input type="checkbox" checked={activeSession.applyTax} onChange={(e) => toggleCharge(table.id, "applyTax", e.target.checked)} /> VAT / tax</label><label className="flex gap-2"><input type="checkbox" checked={activeSession.applyServiceCharge} onChange={(e) => toggleCharge(table.id, "applyServiceCharge", e.target.checked)} /> Service charge</label></div>}
                   <div className="grid grid-cols-2 gap-2">
                     <Button
                       size="sm"

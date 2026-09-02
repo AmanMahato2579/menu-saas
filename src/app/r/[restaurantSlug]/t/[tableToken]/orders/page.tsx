@@ -1,5 +1,5 @@
-import { notFound } from "next/navigation";
-import { getRestaurantBySlug, getTableByToken, getOrCreateActiveSession } from "@/lib/db";
+import { notFound, redirect } from "next/navigation";
+import { getRestaurantBySlug, getTableByToken, getActiveSession } from "@/lib/db";
 import { prisma } from "@/lib/prisma";
 import OrdersPageClient from "./OrdersPageClient";
 
@@ -15,7 +15,8 @@ export default async function CustomerOrdersPage({ params }: Props) {
   if (!restaurant) notFound();
   const table = await getTableByToken(tableToken);
   if (!table || table.restaurantId !== restaurant.id) notFound();
-  const session = await getOrCreateActiveSession(table.id, restaurant.id);
+  const session = await getActiveSession(table.id, restaurant.id);
+  if (!session) redirect(`/r/${restaurantSlug}/t/${tableToken}`);
 
   // Get all orders for this session
   const orders = await prisma.order.findMany({

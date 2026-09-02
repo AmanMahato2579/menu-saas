@@ -4,7 +4,7 @@ import * as React from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import * as Popover from "@radix-ui/react-popover";
-import { Bell, CheckCheck, Loader2, PackageCheck, Table2, RefreshCw } from "lucide-react";
+import { Bell, BellRing, CheckCheck, Loader2, PackageCheck, Table2, RefreshCw, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface Notification {
@@ -18,6 +18,26 @@ interface Notification {
 }
 
 const POLL_INTERVAL = 5000;
+const ATTENTION_TYPES = new Set(["NEW_TABLE_SESSION", "ASSISTANCE_REQUEST", "NEW_ORDER"]);
+
+function playAttentionSound() {
+  try {
+    const AudioContextClass = window.AudioContext || (window as typeof window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+    if (!AudioContextClass) return;
+    const context = new AudioContextClass();
+    const oscillator = context.createOscillator();
+    const gain = context.createGain();
+    oscillator.type = "sine";
+    oscillator.frequency.setValueAtTime(880, context.currentTime);
+    oscillator.frequency.setValueAtTime(660, context.currentTime + 0.18);
+    gain.gain.setValueAtTime(0.0001, context.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.22, context.currentTime + 0.02);
+    gain.gain.exponentialRampToValueAtTime(0.0001, context.currentTime + 0.7);
+    oscillator.connect(gain).connect(context.destination);
+    oscillator.start(); oscillator.stop(context.currentTime + 0.72);
+    oscillator.addEventListener("ended", () => context.close());
+  } catch { /* Browsers may block sound until the owner interacts with the page. */ }
+}
 
 function timeAgo(dateStr: string) {
   const diff = Date.now() - new Date(dateStr).getTime();
@@ -59,6 +79,8 @@ export default function NotificationBell({ initialUnreadCount = 0 }: { initialUn
   const [unreadCount, setUnreadCount] = React.useState(initialUnreadCount);
   const [loading, setLoading] = React.useState(false);
   const [markingAll, setMarkingAll] = React.useState(false);
+  const [attentionNotification, setAttentionNotification] = React.useState<Notification | null>(null);
+  const alertedIds = React.useRef(new Set<string>());
 
   const fetchNotifications = React.useCallback(async () => {
     try {
@@ -67,6 +89,12 @@ export default function NotificationBell({ initialUnreadCount = 0 }: { initialUn
       const data = await res.json();
       setNotifications(data.notifications);
       setUnreadCount(data.unreadCount);
+      const urgent = data.notifications.find((notification: Notification) => !notification.read && ATTENTION_TYPES.has(notification.type));
+      if (urgent && !alertedIds.current.has(urgent.id)) {
+        alertedIds.current.add(urgent.id);
+        setAttentionNotification(urgent);
+        playAttentionSound();
+      }
     } catch {
       // ignore transient errors
     } finally {
@@ -75,6 +103,7 @@ export default function NotificationBell({ initialUnreadCount = 0 }: { initialUn
   }, []);
 
   React.useEffect(() => {
+    fetchNotifications();
     const interval = setInterval(() => fetchNotifications(), POLL_INTERVAL);
     return () => clearInterval(interval);
   }, [fetchNotifications]);
@@ -108,7 +137,18 @@ export default function NotificationBell({ initialUnreadCount = 0 }: { initialUn
     if (n.link) router.push(n.link);
   };
 
+  const acceptAttention = async () => {
+    if (!attentionNotification) return;
+    const notification = attentionNotification;
+    await fetch(`/api/admin/notifications/${notification.id}`, { method: "PATCH" });
+    setUnreadCount((count) => Math.max(0, count - 1));
+    setNotifications((items) => items.map((item) => item.id === notification.id ? { ...item, read: true } : item));
+    setAttentionNotification(null);
+    if (notification.link) router.push(notification.link);
+  };
+
   return (
+    <>
     <Popover.Root open={open} onOpenChange={setOpen}>
       <Popover.Trigger asChild>
         <button
@@ -209,5 +249,19 @@ export default function NotificationBell({ initialUnreadCount = 0 }: { initialUn
         </div>
       </Popover.Content>
     </Popover.Root>
+    {attentionNotification && (
+      <div role="alertdialog" aria-modal="true" className="fixed inset-0 z-[100] flex items-center justify-center bg-gray-950/80 p-4 backdrop-blur-sm">
+        <div className="w-full max-w-lg rounded-3xl border-4 border-orange-400 bg-white p-7 text-center shadow-2xl animate-in fade-in zoom-in-95">
+          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-orange-100 text-orange-600"><BellRing className="h-9 w-9 animate-pulse" /></div>
+          <p className="text-xs font-bold uppercase tracking-[0.18em] text-orange-600">Immediate attention required</p>
+          <h2 className="mt-2 text-2xl font-extrabold text-gray-900">{attentionNotification.title}</h2>
+          <p className="mt-3 text-lg text-gray-700">{attentionNotification.message}</p>
+          <p className="mt-2 text-sm text-gray-500">Acknowledge this alert, then act on it now.</p>
+          <button onClick={acceptAttention} className="mt-6 w-full rounded-xl bg-orange-500 px-5 py-4 text-base font-bold text-white hover:bg-orange-600">Accept & view details</button>
+          <button onClick={() => setAttentionNotification(null)} aria-label="Minimize alert" className="mt-3 text-sm font-medium text-gray-500 hover:text-gray-700"><X className="mr-1 inline h-4 w-4" /> Minimize</button>
+        </div>
+      </div>
+    )}
+    </>
   );
 }

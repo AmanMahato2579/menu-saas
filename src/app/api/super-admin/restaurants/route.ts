@@ -41,7 +41,7 @@ export async function POST(req: Request) {
   // Create restaurant + owner + tables in a transaction
   const result = await prisma.$transaction(async (tx) => {
     const restaurant = await tx.restaurant.create({
-      data: { name, slug, phone, address },
+      data: { name, slug, phone, address, tableLimit: tableCount },
     });
 
     const user = await tx.user.create({
