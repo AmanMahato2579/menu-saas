@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { useToast } from "@/components/ui/toast";
-import { Loader2, FlameKindling, X, AlertTriangle, Users, StopCircle } from "lucide-react";
+import { Loader2, FlameKindling, Users, StopCircle } from "lucide-react";
 
 const STATUS_TABS = [
   { label: "All", value: undefined },
@@ -66,134 +66,13 @@ interface Props {
   restaurantId: string;
 }
 
-// ── Friction Confirmation Modal ────────────────────────────────────────────────
-function ConfirmCompleteModal({
-  orderNumber,
-  onConfirm,
-  onCancel,
-  loading,
-}: {
-  orderNumber: number;
-  onConfirm: () => void;
-  onCancel: () => void;
-  loading: boolean;
-}) {
-  const [input, setInput] = useState("");
-  const isValid = input.trim().toUpperCase() === "DONE";
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-      <div className="bg-white rounded-2xl shadow-2xl max-w-sm w-full p-6">
-        <div className="flex items-center gap-3 mb-4">
-          <div className="w-10 h-10 rounded-xl bg-green-100 flex items-center justify-center">
-            <AlertTriangle className="w-5 h-5 text-green-600" />
-          </div>
-          <div>
-            <p className="font-bold text-gray-900">Mark Order #{orderNumber} Complete?</p>
-            <p className="text-xs text-gray-500">Confirm only after payment is settled.</p>
-          </div>
-          <button onClick={onCancel} className="ml-auto text-gray-400 hover:text-gray-600">
-            <X className="w-4 h-4" />
-          </button>
-        </div>
-        <p className="text-sm text-gray-600 mb-4">
-          Type <span className="font-bold text-gray-900 bg-gray-100 px-1.5 py-0.5 rounded">DONE</span> to confirm this order was served and paid for:
-        </p>
-        <input
-          autoFocus
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          placeholder="Type DONE to confirm"
-          className="w-full border-2 rounded-xl px-4 py-2.5 text-sm font-mono mb-4 focus:outline-none focus:border-green-500 transition-colors"
-        />
-        <div className="flex gap-3">
-          <Button
-            onClick={onConfirm}
-            disabled={!isValid || loading}
-            className="flex-1 bg-green-500 hover:bg-green-600 text-white"
-          >
-            {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : "Mark Completed"}
-          </Button>
-          <Button variant="outline" onClick={onCancel} disabled={loading}>
-            Cancel
-          </Button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ── End Session Confirmation ───────────────────────────────────────────────────
-function ConfirmEndSessionModal({
-  tableNumber,
-  customerName,
-  onConfirm,
-  onCancel,
-  loading,
-}: {
-  tableNumber: number;
-  customerName?: string | null;
-  onConfirm: () => void;
-  onCancel: () => void;
-  loading: boolean;
-}) {
-  const [input, setInput] = useState("");
-  const isValid = input.trim().toUpperCase() === "END";
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-      <div className="bg-white rounded-2xl shadow-2xl max-w-sm w-full p-6">
-        <div className="flex items-center gap-3 mb-4">
-          <div className="w-10 h-10 rounded-xl bg-red-100 flex items-center justify-center">
-            <StopCircle className="w-5 h-5 text-red-600" />
-          </div>
-          <div>
-            <p className="font-bold text-gray-900">End Table {tableNumber} Session?</p>
-            {customerName && <p className="text-xs text-gray-500">Guest: {customerName}</p>}
-          </div>
-          <button onClick={onCancel} className="ml-auto text-gray-400 hover:text-gray-600">
-            <X className="w-4 h-4" />
-          </button>
-        </div>
-        <p className="text-sm text-gray-600 mb-4">
-          This clears the table for the next guest. Type{" "}
-          <span className="font-bold text-gray-900 bg-gray-100 px-1.5 py-0.5 rounded">END</span> to confirm:
-        </p>
-        <input
-          autoFocus
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          placeholder="Type END to confirm"
-          className="w-full border-2 rounded-xl px-4 py-2.5 text-sm font-mono mb-4 focus:outline-none focus:border-red-500 transition-colors"
-        />
-        <div className="flex gap-3">
-          <Button
-            onClick={onConfirm}
-            disabled={!isValid || loading}
-            className="flex-1 bg-red-500 hover:bg-red-600 text-white"
-          >
-            {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : "End Session"}
-          </Button>
-          <Button variant="outline" onClick={onCancel} disabled={loading}>
-            Cancel
-          </Button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 // ── Main Component ─────────────────────────────────────────────────────────────
 export default function OrdersClient({ orders, currentStatus }: Props) {
   const router = useRouter();
   const { toast } = useToast();
   const [updatingId, setUpdatingId] = useState<string | null>(null);
   const [, startTransition] = useTransition();
-
-  // Friction modals
-  const [completeModal, setCompleteModal] = useState<Order | null>(null);
-  const [endSessionModal, setEndSessionModal] = useState<{ sessionId: string; tableNumber: number; customerName?: string | null } | null>(null);
-  const [endingSession, setEndingSession] = useState(false);
+  const [endingSessionId, setEndingSessionId] = useState<string | null>(null);
 
   const updateStatus = async (orderId: string, newStatus: string) => {
     setUpdatingId(orderId);
@@ -210,7 +89,6 @@ export default function OrdersClient({ orders, currentStatus }: Props) {
       toast({ title: "Error", variant: "destructive", description: "Could not update order status." });
     } finally {
       setUpdatingId(null);
-      setCompleteModal(null);
     }
   };
 
@@ -232,14 +110,12 @@ export default function OrdersClient({ orders, currentStatus }: Props) {
     }
   };
 
-  const endSession = async () => {
-    if (!endSessionModal) return;
-    setEndingSession(true);
+  const endSession = async (sessionId: string, tableNumber: number) => {
+    setEndingSessionId(sessionId);
     try {
-      const res = await fetch(`/api/admin/sessions/${endSessionModal.sessionId}/close`, { method: "POST" });
+      const res = await fetch(`/api/admin/sessions/${sessionId}/close`, { method: "POST" });
       if (res.ok) {
-        toast({ title: "Session ended", variant: "success", description: `Table ${endSessionModal.tableNumber} is now free.` });
-        setEndSessionModal(null);
+        toast({ title: "Session ended", variant: "success", description: `Table ${tableNumber} is now free.` });
         startTransition(() => router.refresh());
       } else {
         toast({ title: "Error", variant: "destructive", description: "Could not end session." });
@@ -247,7 +123,7 @@ export default function OrdersClient({ orders, currentStatus }: Props) {
     } catch {
       toast({ title: "Network error", variant: "destructive" });
     } finally {
-      setEndingSession(false);
+      setEndingSessionId(null);
     }
   };
 
@@ -363,13 +239,7 @@ export default function OrdersClient({ orders, currentStatus }: Props) {
                             : "bg-orange-500 hover:bg-orange-600"
                         }`}
                         disabled={updatingId === order.id}
-                        onClick={() => {
-                          if (order.status === "READY") {
-                            setCompleteModal(order);
-                          } else {
-                            updateStatus(order.id, NEXT_STATUS[order.status]);
-                          }
-                        }}
+                        onClick={() => updateStatus(order.id, NEXT_STATUS[order.status])}
                       >
                         {updatingId === order.id ? (
                           <Loader2 className="w-4 h-4 animate-spin" />
@@ -393,17 +263,12 @@ export default function OrdersClient({ orders, currentStatus }: Props) {
                   {/* End Session button — visible on READY or COMPLETED orders */}
                   {(order.status === "READY" || order.status === "COMPLETED") && sessionId && (
                     <button
-                      onClick={() =>
-                        setEndSessionModal({
-                          sessionId,
-                          tableNumber: tableNumber ?? 0,
-                          customerName,
-                        })
-                      }
-                      className="w-full text-xs text-red-500 border border-red-200 hover:bg-red-50 rounded-lg py-2 flex items-center justify-center gap-1.5 transition-colors"
+                      onClick={() => endSession(sessionId, tableNumber ?? 0)}
+                      disabled={endingSessionId === sessionId}
+                      className="w-full text-xs text-red-500 border border-red-200 hover:bg-red-50 rounded-lg py-2 flex items-center justify-center gap-1.5 transition-colors disabled:opacity-50"
                     >
                       <StopCircle className="w-3.5 h-3.5" />
-                      End Table {tableNumber} Session
+                      {endingSessionId === sessionId ? "Ending..." : `End Table ${tableNumber} Session`}
                     </button>
                   )}
                 </CardContent>
@@ -411,27 +276,6 @@ export default function OrdersClient({ orders, currentStatus }: Props) {
             );
           })}
         </div>
-      )}
-
-      {/* Friction: Complete confirmation modal */}
-      {completeModal && (
-        <ConfirmCompleteModal
-          orderNumber={completeModal.orderNumber}
-          onConfirm={() => updateStatus(completeModal.id, "COMPLETED")}
-          onCancel={() => setCompleteModal(null)}
-          loading={updatingId === completeModal.id}
-        />
-      )}
-
-      {/* Friction: End session confirmation modal */}
-      {endSessionModal && (
-        <ConfirmEndSessionModal
-          tableNumber={endSessionModal.tableNumber}
-          customerName={endSessionModal.customerName}
-          onConfirm={endSession}
-          onCancel={() => setEndSessionModal(null)}
-          loading={endingSession}
-        />
       )}
     </div>
   );
