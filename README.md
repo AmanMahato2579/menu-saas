@@ -242,6 +242,39 @@ Then restart the dev server. This syncs the database schema, regenerates the Pri
 
 ---
 
+## 4.1 Database Migrations (Production)
+
+Migrations are **not** run automatically during Vercel builds. When you make schema changes:
+
+### Step 1: Create migration locally
+
+```bash
+npx prisma migrate dev --name your_migration_name
+```
+
+This generates a SQL migration file in `prisma/migrations/`.
+
+### Step 2: Apply to production
+
+**Option A — Prisma CLI** (requires database access):
+
+```bash
+npx prisma migrate deploy
+```
+
+**Option B — Supabase SQL Editor** (recommended):
+
+1. Open the generated migration file from `prisma/migrations/`
+2. Copy the SQL
+3. Go to Supabase Dashboard → SQL Editor
+4. Paste and run the SQL
+
+**Option C — Vercel build step** (one-time):
+
+Add `prisma migrate deploy` back to the build script temporarily, deploy, then remove it again.
+
+---
+
 ## 5. Seed the Database
 
 Run:
