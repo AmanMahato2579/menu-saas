@@ -16,8 +16,7 @@ interface Notification {
   read: boolean;
   createdAt: string;
 }
-
-const POLL_INTERVAL = 5000;
+const POLL_INTERVAL = 3000;
 const ATTENTION_TYPES = new Set(["NEW_TABLE_SESSION", "ASSISTANCE_REQUEST", "NEW_ORDER"]);
 
 function playAttentionSound() {

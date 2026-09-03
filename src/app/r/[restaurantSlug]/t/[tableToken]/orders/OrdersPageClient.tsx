@@ -60,9 +60,8 @@ export default function OrdersPageClient({ restaurant, table, orders: initialOrd
       }
     } catch {}
   }, [tableSession.id]);
-
   useEffect(() => {
-    const interval = setInterval(refreshOrders, 5000); // Poll every 5 seconds
+    const interval = setInterval(refreshOrders, 3000); // Poll every 3 seconds
     return () => clearInterval(interval);
   }, [refreshOrders]);
 

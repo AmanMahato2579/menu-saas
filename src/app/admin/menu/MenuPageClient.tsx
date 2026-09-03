@@ -20,6 +20,7 @@ interface MenuItem {
   hasSpicyOption: boolean;
   hasNoteOption: boolean;
   discountPercent: number;
+  foodType: string | null;
   variants?: { id: string; name: string; price: string }[];
 }
 
@@ -149,7 +150,7 @@ export default function MenuPageClient({ categories, restaurantId }: Props) {
 
                       {/* Info */}
                       <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 flex-wrap">
                           <p className="font-medium text-gray-900 text-sm">{item.name}</p>
                           {item.hasSpicyOption && (
                             <Flame className="w-3.5 h-3.5 text-red-400" />
@@ -157,6 +158,13 @@ export default function MenuPageClient({ categories, restaurantId }: Props) {
                           {item.hasNoteOption && (
                             <StickyNote className="w-3.5 h-3.5 text-blue-400" />
                           )}
+                          <span className={`text-[10px] px-1.5 py-0.5 rounded font-semibold ${
+                            item.foodType === "NON_VEG"
+                              ? "bg-red-100 text-red-700"
+                              : "bg-green-100 text-green-700"
+                          }`}>
+                            {item.foodType === "NON_VEG" ? "🔴 Non-Veg" : "🟢 Veg"}
+                          </span>
                         </div>
                         {item.description && (
                           <p className="text-xs text-gray-400 truncate">{item.description}</p>

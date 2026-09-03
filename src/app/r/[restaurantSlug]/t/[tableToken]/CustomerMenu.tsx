@@ -31,6 +31,7 @@ interface MenuItem {
   hasSpicyOption: boolean;
   hasNoteOption: boolean;
   categoryId: string;
+  foodType: string | null;
   variants?: { id: string; name: string; price: string }[];
 }
 
@@ -77,6 +78,7 @@ export default function CustomerMenu({ restaurant, table, tableSession, categori
   const [customerName, setCustomerName] = useState("");
   const [starting, setStarting] = useState(false);
   const [calling, setCalling] = useState(false);
+  const [foodFilter, setFoodFilter] = useState<"ALL" | "VEG" | "NON_VEG">("ALL");
   const [cart, setCart] = useState<CartItem[]>(() => {
     if (typeof window === "undefined") return [];
     const saved = tableSession && localStorage.getItem(CART_KEY(tableSession.id));
@@ -160,6 +162,19 @@ export default function CustomerMenu({ restaurant, table, tableSession, categori
   }, [categories]);
 
   const baseUrl = `/r/${params.restaurantSlug}/t/${params.tableToken}`;
+
+  // Helper: safely resolve food type (null/undefined → VEG)
+  const resolveType = (item: MenuItem) => (item.foodType === "NON_VEG" ? "NON_VEG" : "VEG");
+
+  // Filtered categories based on food type selection
+  const filteredCategories = categories.map((cat) => ({
+    ...cat,
+    menuItems: cat.menuItems.filter((item) => {
+      if (foodFilter === "ALL") return true;
+      if (foodFilter === "NON_VEG") return resolveType(item) === "NON_VEG";
+      return resolveType(item) === "VEG";
+    }),
+  })).filter((cat) => cat.menuItems.length > 0);
 
   const startSession = async () => {
     setStarting(true);
@@ -251,15 +266,40 @@ export default function CustomerMenu({ restaurant, table, tableSession, categori
           </div>
         )}
 
+        {/* Food Type Filter */}
+        <div className="px-4 pt-3">
+          <div className="flex gap-2">
+            {(["ALL", "VEG", "NON_VEG"] as const).map((f) => (
+              <button
+                key={f}
+                onClick={() => setFoodFilter(f)}
+                className={`px-4 py-1.5 rounded-full text-sm font-medium border transition-all ${
+                  foodFilter === f
+                    ? f === "NON_VEG"
+                      ? "bg-red-500 text-white border-red-500"
+                      : f === "VEG"
+                      ? "bg-green-500 text-white border-green-500"
+                      : "bg-orange-500 text-white border-orange-500"
+                    : "bg-white text-gray-600 border-gray-200 hover:border-orange-300"
+                }`}
+              >
+                {f === "ALL" ? "All" : f === "VEG" ? "🟢 Veg" : "🔴 Non-Veg"}
+              </button>
+            ))}
+          </div>
+        </div>
+
         {/* Menu Categories */}
-        {categories.length === 0 ? (
+        {filteredCategories.length === 0 ? (
           <div className="text-center py-20 px-4 text-gray-400">
             <p className="text-2xl mb-2">🍽️</p>
-            <p className="font-medium">No menu items available yet</p>
+            <p className="font-medium">
+              {foodFilter === "ALL" ? "No menu items available yet" : `No ${foodFilter === "VEG" ? "veg" : "non-veg"} items available`}
+            </p>
           </div>
         ) : (
           <div className="px-4 pt-4 space-y-8">
-            {categories.map((category) => (
+            {filteredCategories.map((category) => (
               <div
                 key={category.id}
                 id={`cat-${category.id}`}
@@ -282,7 +322,10 @@ export default function CustomerMenu({ restaurant, table, tableSession, categori
                       )}
                       <div className="flex-1 p-4 flex flex-col justify-between min-w-0">
                         <div>
-                          <p className="font-semibold text-gray-900">{item.name}</p>
+                          <div className="flex items-center gap-1.5 mb-0.5">
+                            <span className={`w-3 h-3 rounded-sm border-2 flex-shrink-0 ${resolveType(item) === "NON_VEG" ? "border-red-500" : "border-green-500"}`} title={resolveType(item) === "NON_VEG" ? "Non-Veg" : "Veg"} />
+                            <p className="font-semibold text-gray-900">{item.name}</p>
+                          </div>
                           {item.description && (
                             <p className="text-xs text-gray-400 mt-0.5 line-clamp-2">{item.description}</p>
                           )}

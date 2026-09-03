@@ -1,5 +1,5 @@
 import { requireRestaurantAdmin } from "@/lib/auth-guard";
-import { getDashboardStats } from "@/lib/db";
+import { getDashboardStats, getRestaurantById } from "@/lib/db";
 import { formatCurrency } from "@/lib/utils";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -17,7 +17,14 @@ export const metadata = { title: "Dashboard – MenuQR Admin" };
 
 export default async function AdminDashboard() {
   const user = await requireRestaurantAdmin();
-  const stats = await getDashboardStats(user.restaurantId!);
+  const [stats, restaurant] = await Promise.all([
+    getDashboardStats(user.restaurantId!),
+    getRestaurantById(user.restaurantId!),
+  ]);
+
+  const plan = restaurant?.plan ?? "STAR";
+  const planLabel = plan === "GOLD" ? "🥇 GOLD" : plan === "SILVER" ? "🥈 SILVER" : plan === "BRONZE" ? "🥉 BRONZE" : "⭐ STAR";
+  const planColor = plan === "GOLD" ? "bg-yellow-50 text-yellow-700 border-yellow-200" : plan === "SILVER" ? "bg-gray-50 text-gray-600 border-gray-300" : plan === "BRONZE" ? "bg-orange-50 text-orange-700 border-orange-200" : "bg-purple-50 text-purple-700 border-purple-200";
 
   const statCards = [
     { label: "Today's Orders", value: stats.todayOrders, icon: ClipboardList, color: "text-blue-600", bg: "bg-blue-50" },
@@ -39,9 +46,15 @@ export default async function AdminDashboard() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
-        <p className="text-gray-500 text-sm mt-1">Overview of your restaurant today</p>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
+          <p className="text-gray-500 text-sm mt-1">Overview of your restaurant today</p>
+        </div>
+        <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-bold border ${planColor}`}>
+          {planLabel}
+          <span className="text-xs font-normal opacity-70">Plan</span>
+        </span>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">

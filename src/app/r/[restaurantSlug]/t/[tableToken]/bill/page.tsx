@@ -112,7 +112,7 @@ export default async function BillPage({ params }: Props) {
           </div>
           <h3 className="font-bold text-green-800 text-base">Pay at the Counter</h3>
           <p className="text-green-600 text-sm mt-1">
-            Please settle your bill at the restaurant counter. We do not accept online payments.
+            Please settle your bill at the restaurant counter. Integrated online payment coming soon.
           </p>
         </div>
 
