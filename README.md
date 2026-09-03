@@ -219,13 +219,7 @@ openssl rand -base64 32
 For development, push the Prisma schema to the database:
 
 ```bash
-npx prisma db push
-```
-
-For production environments, use Prisma migrations:
-
-```bash
-npx prisma migrate deploy
+npm run db:push
 ```
 
 ### After Pulling New Changes
@@ -233,8 +227,8 @@ npx prisma migrate deploy
 If you pull new code that includes schema changes (new fields, models, etc.), the local database will be out of sync. Run:
 
 ```bash
-npx prisma db push
-npx prisma generate
+npm run db:push
+npm run db:generate
 rm -rf .next
 ```
 
@@ -242,36 +236,33 @@ Then restart the dev server. This syncs the database schema, regenerates the Pri
 
 ---
 
-## 4.1 Database Migrations (Production)
+## 4.1 Database Schema Changes (Production Workflow)
 
-Migrations are **not** run automatically during Vercel builds. When you make schema changes:
+When you change `prisma/schema.prisma`, follow these steps:
 
-### Step 1: Create migration locally
-
-```bash
-npx prisma migrate dev --name your_migration_name
-```
-
-This generates a SQL migration file in `prisma/migrations/`.
-
-### Step 2: Apply to production
-
-**Option A — Prisma CLI** (requires database access):
+**Step 1** — Create a migration (run once per schema change):
 
 ```bash
-npx prisma migrate deploy
+npm run db:migrate:dev -- --name describe_your_change
 ```
 
-**Option B — Supabase SQL Editor** (recommended):
+**Step 2** — Open the generated SQL file in `prisma/migrations/`, copy the SQL, then:
 
-1. Open the generated migration file from `prisma/migrations/`
-2. Copy the SQL
-3. Go to Supabase Dashboard → SQL Editor
-4. Paste and run the SQL
+1. Go to Supabase Dashboard → SQL Editor
+2. Paste the SQL
+3. Click "Run without RLS"
+4. Verify it succeeds
 
-**Option C — Vercel build step** (one-time):
+**Step 3** — Regenerate the Prisma client:
 
-Add `prisma migrate deploy` back to the build script temporarily, deploy, then remove it again.
+```bash
+npm run db:generate
+```
+
+**Step 4** — Push to GitHub. Vercel auto-deploys.
+
+> **Do NOT run `db:migrate:dev` multiple times** — it creates duplicate migration files.
+> **Do NOT run `db:push` for production** — it bypasses migrations and can cause drift.
 
 ---
 
