@@ -17,7 +17,7 @@ interface MenuItem {
   discountPercent: number;
   hasSpicyOption: boolean;
   hasNoteOption: boolean;
-  variants?: { id: string; name: string; price: string }[];
+  variants?: { id: string; name: string; price: string; foodType?: string | null }[];
 }
 
 interface Props {
@@ -104,9 +104,30 @@ export default function MenuItemModal({ item, currency, onClose, onAddToCart }: 
           </div>
 
           {item.variants && item.variants.length > 0 && (
-            <div><p className="text-sm font-semibold text-gray-700 mb-2">Choose variant</p><div className="grid grid-cols-2 gap-2">
-              {item.variants.map((entry) => <button key={entry.id} onClick={() => setVariantId(entry.id)} className={`rounded-xl border-2 p-3 text-left ${variantId === entry.id ? "border-orange-500 bg-orange-50" : "border-gray-200"}`}><p className="font-medium text-sm">{entry.name}</p><p className="text-xs text-gray-500">{formatCurrency(entry.price, currency)}</p></button>)}
-            </div></div>
+            <div>
+              <p className="text-sm font-semibold text-gray-700 mb-2">Choose Variant</p>
+              <div className="grid grid-cols-2 gap-2">
+                {item.variants.map((entry) => (
+                  <button
+                    key={entry.id}
+                    onClick={() => setVariantId(entry.id)}
+                    className={`rounded-xl border-2 p-3 text-left transition-all ${
+                      variantId === entry.id ? "border-orange-500 bg-orange-50" : "border-gray-200 hover:border-gray-300"
+                    }`}
+                  >
+                    <div className="flex items-center justify-between gap-1">
+                      <p className="font-medium text-sm text-gray-900 truncate">{entry.name}</p>
+                      {entry.foodType && (
+                        <span className="text-xs" title={entry.foodType === "NON_VEG" ? "Non-Veg" : "Veg"}>
+                          {entry.foodType === "NON_VEG" ? "🔴" : "🟢"}
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-xs font-semibold text-orange-600 mt-1">{formatCurrency(entry.price, currency)}</p>
+                  </button>
+                ))}
+              </div>
+            </div>
           )}
 
           {/* Quantity */}

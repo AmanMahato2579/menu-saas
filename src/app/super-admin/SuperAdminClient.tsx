@@ -32,6 +32,7 @@ interface Restaurant {
   address: string | null;
   tableLimit: number;
   isActive: boolean;
+  plan: string;
   createdAt: string;
   _count: { tables: number; users: number };
 }
@@ -94,7 +95,7 @@ export default function SuperAdminClient({ restaurants }: Props) {
     if (!editing) return;
     const form = new FormData(event.currentTarget);
     setEditSaving(true);
-    const res = await fetch(`/api/super-admin/restaurants/${editing.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: form.get("name"), phone: form.get("phone") || null, address: form.get("address") || null, tableLimit: Number(form.get("tableLimit")) }) });
+    const res = await fetch(`/api/super-admin/restaurants/${editing.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: form.get("name"), phone: form.get("phone") || null, address: form.get("address") || null, tableLimit: Number(form.get("tableLimit")), plan: form.get("plan") }) });
     setEditSaving(false);
     if (res.ok) { toast({ title: "Restaurant updated", variant: "success" }); startTransition(() => router.refresh()); }
     else toast({ title: "Could not update restaurant", variant: "destructive" });
@@ -221,6 +222,15 @@ export default function SuperAdminClient({ restaurants }: Props) {
                 <input name="phone" defaultValue={r.phone ?? ""} className={inputCls} placeholder="Phone" />
                 <input name="address" defaultValue={r.address ?? ""} className={inputCls} placeholder="Address" />
                 <input name="tableLimit" type="number" min="1" max="200" defaultValue={r.tableLimit} required className={inputCls} placeholder="QR table limit" />
+                <div className="md:col-span-2 space-y-1">
+                  <p className="text-xs text-orange-200 font-medium">Restaurant Plan</p>
+                  <select name="plan" defaultValue={r.plan || "STAR"} className={inputCls}>
+                    <option value="STAR">⭐ STAR (Elite)</option>
+                    <option value="GOLD">🥇 GOLD</option>
+                    <option value="SILVER">🥈 SILVER</option>
+                    <option value="BRONZE">🥉 BRONZE</option>
+                  </select>
+                </div>
                 <p className="md:col-span-2 text-xs text-orange-200/80">The limit controls the maximum number of QR tables the restaurant can create. It cannot be set below the existing table count.</p>
                 <div className="md:col-span-2 flex gap-2"><button disabled={editSaving} className="px-4 py-2 rounded-lg bg-orange-500 text-sm font-medium text-white">{editSaving ? "Saving…" : "Save changes"}</button><button type="button" onClick={() => setEditing(null)} className="px-4 py-2 rounded-lg border border-white/20 text-sm">Cancel</button></div>
               </form>
@@ -251,6 +261,14 @@ export default function SuperAdminClient({ restaurants }: Props) {
                   <p className="font-semibold text-white">{r.name}</p>
                   <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${r.isActive ? "bg-green-500/20 text-green-400" : "bg-red-500/20 text-red-400"}`}>
                     {r.isActive ? "Active" : "Inactive"}
+                  </span>
+                  <span className={`text-xs px-2 py-0.5 rounded-full font-bold ${
+                    r.plan === "GOLD" ? "bg-yellow-500/20 text-yellow-300" :
+                    r.plan === "SILVER" ? "bg-gray-400/20 text-gray-300" :
+                    r.plan === "BRONZE" ? "bg-orange-700/20 text-orange-400" :
+                    "bg-purple-500/20 text-purple-300"
+                  }`}>
+                    {r.plan === "GOLD" ? "🥇 GOLD" : r.plan === "SILVER" ? "🥈 SILVER" : r.plan === "BRONZE" ? "🥉 BRONZE" : "⭐ STAR"}
                   </span>
                 </div>
                 <p className="text-xs text-gray-400">/{r.slug}</p>

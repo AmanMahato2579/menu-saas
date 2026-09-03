@@ -74,6 +74,7 @@ model Restaurant {
   isServiceChargeEnabled Boolean @default(false)
   tableLimit  Int     @default(20)
   isActive    Boolean @default(true)
+  plan        String  @default("STAR")
 
   users         User[]
   tables        Table[]
@@ -164,6 +165,7 @@ model MenuItem {
   isAvailable    Boolean @default(true)
   hasSpicyOption Boolean @default(false)
   hasNoteOption  Boolean @default(true)
+  foodType       String?
 
   restaurant Restaurant  @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
   category   Category    @relation(fields: [categoryId], references: [id], onDelete: Cascade)
@@ -182,6 +184,7 @@ model MenuItemVariant {
   menuItemId String
   name       String
   price      Decimal  @db.Decimal(10, 2)
+  foodType   String?
   isAvailable Boolean @default(true)
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useTransition, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
@@ -34,6 +34,18 @@ export default function TablesClient({ tables, restaurantSlug, restaurantId }: P
   const [isOpen, setIsOpen] = useState(false);
   const [tableNumber, setTableNumber] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Auto-refresh tables every 3 seconds to show active sessions instantly
+  useEffect(() => {
+    const interval = setInterval(() => {
+      if (!isOpen && !isSubmitting) {
+        startTransition(() => {
+          router.refresh();
+        });
+      }
+    }, 3000);
+    return () => clearInterval(interval);
+  }, [router, isOpen, isSubmitting]);
 
   const handleAddTable = async (e: React.FormEvent) => {
     e.preventDefault();

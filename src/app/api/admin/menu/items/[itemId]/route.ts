@@ -8,14 +8,21 @@ const patchSchema = z.object({
   categoryId: z.string().optional(),
   name: z.string().min(1).max(100).optional(),
   description: z.string().optional().nullable(),
-  price: z.coerce.number().positive().optional(),
+  price: z.coerce.number().min(0).optional(),
   imageUrl: z.string().url().optional().nullable().or(z.literal("")),
   isAvailable: z.boolean().optional(),
   hasSpicyOption: z.boolean().optional(),
   hasNoteOption: z.boolean().optional(),
   ingredients: z.string().optional().nullable(),
   discountPercent: z.coerce.number().int().min(0).max(100).optional(),
-  variants: z.array(z.object({ id: z.string().optional(), name: z.string().trim().min(1).max(50), price: z.coerce.number().positive(), isAvailable: z.boolean().optional() })).max(20).optional(),
+  foodType: z.enum(["VEG", "NON_VEG"]).optional().nullable(),
+  variants: z.array(z.object({
+    id: z.string().optional(),
+    name: z.string().trim().min(1).max(50),
+    price: z.coerce.number().positive(),
+    foodType: z.enum(["VEG", "NON_VEG"]).optional().nullable(),
+    isAvailable: z.boolean().optional(),
+  })).max(20).optional(),
 });
 
 async function getRestaurantId(): Promise<string | null> {
@@ -41,6 +48,10 @@ export async function PATCH(
   const { variants, ...rest } = parsed.data;
   const updateData = { ...rest } as Prisma.MenuItemUpdateInput;
   if (parsed.data.imageUrl === "") updateData.imageUrl = null;
+
+  if (variants && variants.length > 0 && (!updateData.price || Number(updateData.price) <= 0)) {
+    updateData.price = variants[0].price;
+  }
 
   if (variants) updateData.variants = { deleteMany: {}, create: variants.map(({ id: _id, ...variant }) => variant) };
   const updated = await prisma.menuItem.update({ where: { id: itemId }, data: updateData });
