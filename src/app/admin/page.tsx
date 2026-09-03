@@ -1,6 +1,7 @@
 import { requireRestaurantAdmin } from "@/lib/auth-guard";
 import { getDashboardStats, getRestaurantById } from "@/lib/db";
 import { formatCurrency } from "@/lib/utils";
+import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   ClipboardList,
@@ -86,9 +87,9 @@ export default async function AdminDashboard() {
           <CardContent>
             <p className="text-4xl font-extrabold text-orange-600">{stats.pendingCount}</p>
             <p className="text-sm text-orange-500 mt-1">orders waiting for your response</p>
-            <a href="/admin/orders?status=PENDING" className="inline-block mt-3 text-sm font-medium text-orange-600 hover:underline">
+            <Link href="/admin/orders?status=PENDING" className="inline-block mt-3 text-sm font-medium text-orange-600 hover:underline">
               View & Accept →
-            </a>
+            </Link>
           </CardContent>
         </Card>
 
@@ -101,9 +102,9 @@ export default async function AdminDashboard() {
               {stats.acceptedCount + stats.preparingCount}
             </p>
             <p className="text-sm text-blue-500 mt-1">orders accepted or being prepared</p>
-            <a href="/admin/orders?status=PREPARING" className="inline-block mt-3 text-sm font-medium text-blue-600 hover:underline">
+            <Link href="/admin/orders?status=PREPARING" className="inline-block mt-3 text-sm font-medium text-blue-600 hover:underline">
               View Kitchen →
-            </a>
+            </Link>
           </CardContent>
         </Card>
 
@@ -114,9 +115,9 @@ export default async function AdminDashboard() {
           <CardContent>
             <p className="text-4xl font-extrabold text-green-600">{stats.readyCount}</p>
             <p className="text-sm text-green-500 mt-1">orders ready to be served</p>
-            <a href="/admin/orders?status=READY" className="inline-block mt-3 text-sm font-medium text-green-600 hover:underline">
+            <Link href="/admin/orders?status=READY" className="inline-block mt-3 text-sm font-medium text-green-600 hover:underline">
               View Ready →
-            </a>
+            </Link>
           </CardContent>
         </Card>
       </div>
