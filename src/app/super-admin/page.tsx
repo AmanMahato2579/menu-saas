@@ -1,6 +1,7 @@
 import { requireSuperAdmin } from "@/lib/auth-guard";
 import { prisma } from "@/lib/prisma";
 import SuperAdminClient from "./SuperAdminClient";
+import AuthStateWatcher from "@/components/admin/AuthStateWatcher";
 
 export const metadata = { title: "Super Admin – MenuQR" };
 export const dynamic = "force-dynamic";
@@ -16,6 +17,7 @@ export default async function SuperAdminPage() {
 
   return (
     <div className="min-h-screen bg-gray-950 text-white">
+      <AuthStateWatcher />
       <div className="max-w-5xl mx-auto px-6 py-10">
         <div className="flex items-center justify-between mb-8">
           <div>
