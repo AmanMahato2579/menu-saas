@@ -91,13 +91,13 @@ export default function SettingsClient({ restaurant }: Props) {
           <CardTitle className="text-base">Restaurant Information</CardTitle>
         </CardHeader>
         <CardContent className="space-y-5">
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-1.5 col-span-2">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="space-y-1.5 sm:col-span-2">
               <Label>Restaurant Name *</Label>
               <Input placeholder="My Restaurant" {...register("name")} />
               {errors.name && <p className="text-red-500 text-xs">{errors.name.message}</p>}
             </div>
-            <div className="space-y-1.5 col-span-2">
+            <div className="space-y-1.5 sm:col-span-2">
               <Label>Description</Label>
               <Textarea placeholder="Tell customers about your restaurant" rows={3} {...register("description")} />
             </div>
@@ -109,21 +109,20 @@ export default function SettingsClient({ restaurant }: Props) {
               <Label>Currency Symbol</Label>
               <Input placeholder="Rs." {...register("currency")} />
             </div>
-            <div className="space-y-1.5 col-span-2">
+            <div className="space-y-1.5 sm:col-span-2">
               <Label>Address</Label>
               <Input placeholder="Thamel, Kathmandu" {...register("address")} />
             </div>
-            <div className="space-y-1.5 col-span-2">
+            <div className="space-y-1.5 sm:col-span-2">
               <Label>Opening Hours</Label>
               <Input placeholder="Mon–Sun: 10:00 AM – 10:00 PM" {...register("openingHours")} />
             </div>
-            <div className="space-y-1.5 col-span-2">
+            <div className="space-y-1.5 sm:col-span-2">
               <Label>Logo URL</Label>
               <Input type="url" placeholder="https://example.com/logo.png" {...register("logoUrl")} />
             </div>
 
-            {/* Tax Settings */}
-            <div className="col-span-2 pt-3 border-t">
+            <div className="sm:col-span-2 pt-3 border-t">
               <h3 className="text-sm font-semibold text-gray-700 flex items-center gap-1.5 mb-3">
                 <Percent className="w-4 h-4 text-orange-500" /> Tax Settings
               </h3>
