@@ -19,6 +19,10 @@ import InstallPWA from "./InstallPWA";
 
 interface AdminSidebarProps {
   user: AdminUser;
+  /** Whether the drawer is open on mobile. Ignored at md+ where the sidebar is always visible. */
+  open?: boolean;
+  /** Called when a nav link is clicked, so the mobile drawer can close itself. */
+  onNavigate?: () => void;
 }
 
 const navItems = [
@@ -30,15 +34,21 @@ const navItems = [
   { href: "/admin/settings", label: "Settings", icon: Settings },
 ];
 
-export default function AdminSidebar({ user }: AdminSidebarProps) {
+export default function AdminSidebar({ user, open = false, onNavigate }: AdminSidebarProps) {
   const pathname = usePathname();
 
   return (
-    <aside className="admin-sidebar w-64 flex flex-col shrink-0 text-white">
-      {/* Logo */}
+    <aside
+      className={cn(
+        "admin-sidebar w-72 sm:w-64 flex flex-col shrink-0 text-white",
+        "fixed inset-y-0 left-0 z-50 transition-transform duration-200 ease-in-out",
+        "md:static md:translate-x-0",
+        open ? "translate-x-0" : "-translate-x-full"
+      )}
+    >
       <div className="p-6 border-b border-white/10">
         <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl bg-orange-500 flex items-center justify-center shadow-lg">
+          <div className="w-9 h-9 rounded-xl bg-orange-500 flex items-center justify-center shadow-lg shrink-0">
             <ChefHat className="w-5 h-5 text-white" />
           </div>
           <div>
@@ -48,7 +58,6 @@ export default function AdminSidebar({ user }: AdminSidebarProps) {
         </div>
       </div>
 
-      {/* Restaurant name */}
       {user.restaurantName && (
         <div className="px-6 py-3 border-b border-white/10">
           <p className="text-xs text-white/40 uppercase tracking-wider mb-1">Restaurant</p>
@@ -56,7 +65,6 @@ export default function AdminSidebar({ user }: AdminSidebarProps) {
         </div>
       )}
 
-      {/* Navigation */}
       <nav className="flex-1 p-4 space-y-1">
         {navItems.map(({ href, label, icon: Icon, exact }) => {
           const isActive = exact ? pathname === href : pathname.startsWith(href);
@@ -64,6 +72,7 @@ export default function AdminSidebar({ user }: AdminSidebarProps) {
             <Link
               key={href}
               href={href}
+              onClick={onNavigate}
               className={cn(
                 "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all",
                 isActive
@@ -80,7 +89,6 @@ export default function AdminSidebar({ user }: AdminSidebarProps) {
 
       <InstallPWA />
 
-      {/* User info & logout */}
       <div className="p-4 border-t border-white/10">
         <div className="px-3 py-2 mb-2">
           <p className="text-xs font-medium text-white/70 truncate">{user.name}</p>
