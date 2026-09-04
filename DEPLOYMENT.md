@@ -139,6 +139,13 @@ FROM base AS builder
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
+# the public app URL is baked into the app at build time (QR links use it)
+ARG NEXT_PUBLIC_APP_URL
+ENV NEXT_PUBLIC_APP_URL=$NEXT_PUBLIC_APP_URL
+# placeholder values only — Prisma needs these to resolve its config during the
+# build; no real database connection happens at build time
+ENV DATABASE_URL=postgresql://dummy:dummy@localhost:5432/dummy
+ENV DIRECT_URL=postgresql://dummy:dummy@localhost:5432/dummy
 ENV NEXT_TELEMETRY_DISABLED=1
 RUN npm run build
 
@@ -162,7 +169,28 @@ ENV PORT=3000
 CMD ["node", "server.js"]
 ```
 
-### 4.2 Turn on the "standalone" build in `next.config.ts`
+### 4.2 Add a `.dockerignore` file
+
+Create a file named `.dockerignore` in the project root. It tells Docker which
+local files should **not** be copied into the container image:
+
+```
+node_modules
+.next
+.git
+*.tsbuildinfo
+.env*
+```
+
+Why it matters:
+- `node_modules` — stops the Linux build from accidentally copying our
+  Mac/Windows-installed libraries over the Linux ones (this can make `sharp`
+  and other native tools crash during the build).
+- `.env*` — keeps your secrets (database password, auth secret) out of the
+  image. The secrets stay in `~/app/.env` on the server and are only read by
+  Docker Compose at start time — never baked into the app.
+
+### 4.3 Turn on the "standalone" build in `next.config.ts`
 
 Open `next.config.ts` and add one line so the container is small and fast:
 
@@ -173,16 +201,16 @@ const nextConfig: NextConfig = {
 };
 ```
 
-### 4.3 Docker Compose file (already exists — we keep it and expand it)
+### 4.4 Docker Compose file (already exists — we keep it and expand it)
 
 `docker-compose.yml` already exists with PostgreSQL. On the **server** we will
 use the expanded version shown in Step 7 (it adds the app + database-migration
 services). We will replace the local file's content tomorrow.
 
-### 4.4 Commit and push
+### 4.5 Commit and push
 
 ```bash
-git add Dockerfile next.config.ts docker-compose.yml
+git add Dockerfile .dockerignore next.config.ts docker-compose.yml
 git commit -m "chore: prepare containerized deployment"
 git push origin main
 ```
@@ -205,10 +233,12 @@ Docker is the program that runs our app and database in tidy little boxes
 
    Enter the root password we set in Step 2 when asked.
 
-2. Update the server's base software (one-time):
+2. Update the server's base software and install a couple of small tools
+   (git for pulling our code, nano as the editor for config files):
 
    ```bash
    apt update && apt upgrade -y
+   apt install -y git nano
    ```
 
 3. Install Docker with the official one-liner:
@@ -277,6 +307,10 @@ Both commands should print a version number and no errors.
 3. Double check the secret file is **not** tracked by git (it isn't — the
    project's `.gitignore` already excludes `.env*`).
 
+   Also note: thanks to the `.dockerignore` file from Step 4, this secrets
+   file is **never copied into the app image** — it stays in `~/app/` on the
+   server and Docker Compose reads it at start time.
+
 **Checkpoint:** `ls -la ~/app` shows the `.env` file sitting next to
 `docker-compose.yml`.
 
@@ -317,14 +351,16 @@ Both commands should print a version number and no errors.
          retries: 5
 
      app:
-       build: .
+       build:
+         context: .
+         args:
+           NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL}
        container_name: menu-saas-app
        restart: unless-stopped
        ports:
          - "127.0.0.1:3000:3000"
        environment:
          AUTH_SECRET: ${AUTH_SECRET}
-         NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL}
          DATABASE_URL: ${DATABASE_URL}
          DIRECT_URL: ${DIRECT_URL}
        depends_on:
@@ -367,6 +403,12 @@ Both commands should print a version number and no errors.
    >
    > `migrate` and `seed` are one-time helper jobs: `migrate` creates the
    > database tables, `seed` loads the demo restaurant so we can test.
+   >
+   > `NEXT_PUBLIC_APP_URL` is given to the app as a **build argument**: the URL
+   > is fixed into the app's front-end code while building, so QR codes always
+   > link to `https://<your-domain>`. If you ever change the domain, update
+   > `.env` and rebuild the app (Step 13) — just setting the variable at
+   > runtime is not enough.
 
 2. Build the containers (this takes a few minutes the first time — normal):
 
