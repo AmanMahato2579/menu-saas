@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { formatCurrency, formatDate, getOrderStatusLabel, getOrderStatusColor } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { ArrowLeft, CheckCircle, Clock, Loader2, ChefHat, Package, XCircle } from "lucide-react";
@@ -44,8 +44,13 @@ interface Props {
 
 export default function OrdersPageClient({ restaurant, table, orders: initialOrders, tableSession }: Props) {
   const params = useParams();
+  const router = useRouter();
   const [orders, setOrders] = useState<Order[]>(initialOrders);
+  const prevOrdersRef = useRef<Order[]>(initialOrders);
   const baseUrl = `/r/${params.restaurantSlug}/t/${params.tableToken}`;
+
+  // Rejected orders are hidden from the customer (only the rejected ones disappear)
+  const visibleOrders = orders.filter((order) => order.status !== "REJECTED");
 
   // Poll for order status updates
   const refreshOrders = useCallback(async () => {
@@ -56,10 +61,22 @@ export default function OrdersPageClient({ restaurant, table, orders: initialOrd
       );
       if (res.ok) {
         const data = await res.json();
+        // If an order just got rejected, take the customer back to the menu page
+        const previouslyRejected = new Set(
+          prevOrdersRef.current.filter((o) => o.status === "REJECTED").map((o) => o.id)
+        );
+        const newlyRejected = data.find(
+          (o: Order) => o.status === "REJECTED" && !previouslyRejected.has(o.id)
+        );
+        prevOrdersRef.current = data;
+        if (newlyRejected) {
+          router.push(baseUrl);
+          return;
+        }
         setOrders(data);
       }
     } catch {}
-  }, [tableSession.id]);
+  }, [tableSession.id, router, baseUrl]);
   useEffect(() => {
     const interval = setInterval(refreshOrders, 3000); // Poll every 3 seconds
     return () => clearInterval(interval);
@@ -87,7 +104,7 @@ export default function OrdersPageClient({ restaurant, table, orders: initialOrd
       </div>
 
       <div className="max-w-lg mx-auto px-4 pt-4 space-y-4">
-        {orders.length === 0 ? (
+        {visibleOrders.length === 0 ? (
           <div className="text-center py-20 text-gray-400">
             <Clock className="w-12 h-12 mx-auto mb-3 opacity-30" />
             <p className="font-medium text-gray-500">No orders yet</p>
@@ -97,7 +114,7 @@ export default function OrdersPageClient({ restaurant, table, orders: initialOrd
             </Link>
           </div>
         ) : (
-          orders.map((order) => {
+          visibleOrders.map((order) => {
             const currentStepIdx = STATUS_STEPS.indexOf(order.status as typeof STATUS_STEPS[number]);
             const isRejected = order.status === "REJECTED";
 
@@ -177,7 +194,7 @@ export default function OrdersPageClient({ restaurant, table, orders: initialOrd
         )}
 
         {/* Bill CTA */}
-        {orders.length > 0 && (
+        {visibleOrders.length > 0 && (
           <Link
             href={baseUrl}
             className="block border-2 border-orange-500 text-orange-600 rounded-2xl p-4 text-center font-bold hover:bg-orange-50 transition-colors"
@@ -185,7 +202,7 @@ export default function OrdersPageClient({ restaurant, table, orders: initialOrd
             Add more food
           </Link>
         )}
-        {orders.length > 0 && (
+        {visibleOrders.length > 0 && (
           <Link
             href={`${baseUrl}/bill`}
             className="block bg-orange-500 text-white rounded-2xl p-4 text-center font-bold hover:bg-orange-600 transition-colors shadow-lg shadow-orange-500/20 mt-4"

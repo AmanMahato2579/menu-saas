@@ -145,6 +145,19 @@ export default function NotificationBell({ initialUnreadCount = 0 }: { initialUn
   const acceptAttention = async () => {
     if (!attentionNotification) return;
     const notification = attentionNotification;
+
+    // Accept the pending order this alert refers to (orderId is embedded in the link)
+    const orderId = notification.link
+      ? new URLSearchParams(notification.link.split("?")[1] || "").get("orderId")
+      : null;
+    if (orderId) {
+      await fetch(`/api/admin/orders/${orderId}/status`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: "ACCEPTED" }),
+      }).catch(() => {});
+    }
+
     await fetch(`/api/admin/notifications/${notification.id}`, { method: "PATCH" });
     setUnreadCount((count) => Math.max(0, count - 1));
     setNotifications((items) => items.map((item) => item.id === notification.id ? { ...item, read: true } : item));

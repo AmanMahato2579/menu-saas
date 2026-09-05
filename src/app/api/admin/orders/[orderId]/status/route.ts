@@ -1,5 +1,6 @@
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { createNotification } from "@/lib/notifications";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import type { AdminUser } from "@/types";
@@ -35,6 +36,10 @@ export async function PATCH(
   // Ensure order belongs to this restaurant (tenant isolation)
   const order = await prisma.order.findFirst({
     where: { id: orderId, restaurantId },
+    include: {
+      orderItems: true,
+      tableSession: { include: { table: true } },
+    },
   });
 
   if (!order) {
@@ -45,6 +50,22 @@ export async function PATCH(
     where: { id: orderId },
     data: { status: parsed.data.status },
   });
+
+  if (parsed.data.status === "REJECTED") {
+    const tableNumber = order.tableSession?.table?.tableNumber;
+    const itemSummary = order.orderItems
+      .map((i) => `${i.menuItemName} ×${i.quantity}`)
+      .join(", ");
+    await createNotification({
+      restaurantId,
+      type: "ORDER_STATUS",
+      title: `Order #${order.orderNumber} rejected`,
+      message: tableNumber
+        ? `Table ${tableNumber} — ${itemSummary}. Please inform the customer why this order was rejected.`
+        : `${itemSummary}. Please inform the customer why this order was rejected.`,
+      link: "/admin/orders",
+    });
+  }
 
   return NextResponse.json(updated);
 }

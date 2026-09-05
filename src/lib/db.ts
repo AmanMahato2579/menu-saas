@@ -197,7 +197,7 @@ export async function createOrder(input: CreateOrderInput) {
       message: tableNumber
         ? `Table ${tableNumber} — ${itemSummary}`
         : itemSummary,
-      link: "/admin/orders",
+      link: `/admin/orders?orderId=${order.id}`,
     },
   });
 
