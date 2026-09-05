@@ -576,3 +576,4 @@ Menu SaaS provides a complete digital ordering workflow for restaurants:
 
 The system is built around **multi-tenancy, secure role-based access, QR-based customer access, and server-side order validation**, providing a foundation for a production-ready restaurant ordering platform.
 
+
