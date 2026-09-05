@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { Prisma, OrderStatus } from "@prisma/client";
+import { createNotification } from "@/lib/notifications";
 
 // ─── Restaurant queries ───────────────────────────────────────────────────────
 
@@ -45,14 +46,12 @@ export async function startTableSession(tableId: string, restaurantId: string, c
     where: { id: tableId },
     select: { tableNumber: true },
   });
-  await prisma.notification.create({
-    data: {
-      restaurantId,
-      type: "NEW_TABLE_SESSION",
-      title: "Guest arrived — service needed",
-      message: `${customerName?.trim() ? `${customerName.trim()} is` : "A guest is"} waiting at Table ${table?.tableNumber ?? tableId}. Please greet them.`,
-      link: "/admin/tables",
-    },
+  await createNotification({
+    restaurantId,
+    type: "NEW_TABLE_SESSION",
+    title: "Guest arrived — service needed",
+    message: `${customerName?.trim() ? `${customerName.trim()} is` : "A guest is"} waiting at Table ${table?.tableNumber ?? tableId}. Please greet them.`,
+    link: "/admin/tables",
   });
 
   return session;
@@ -189,16 +188,14 @@ export async function createOrder(input: CreateOrderInput) {
   const itemSummary = order.orderItems
     .map((i) => `${i.menuItemName} ×${i.quantity}`)
     .join(", ");
-  await prisma.notification.create({
-    data: {
-      restaurantId,
-      type: "NEW_ORDER",
-      title: `New order #${orderNumber}`,
-      message: tableNumber
-        ? `Table ${tableNumber} — ${itemSummary}`
-        : itemSummary,
-      link: `/admin/orders?orderId=${order.id}`,
-    },
+  await createNotification({
+    restaurantId,
+    type: "NEW_ORDER",
+    title: `New order #${orderNumber}`,
+    message: tableNumber
+      ? `Table ${tableNumber} — ${itemSummary}`
+      : itemSummary,
+    link: `/admin/orders?orderId=${order.id}`,
   });
 
   return order;

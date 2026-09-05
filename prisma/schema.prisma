@@ -83,6 +83,7 @@ model Restaurant {
   tableSessions TableSession[]
   orders        Order[]
   notifications Notification[]
+  pushSubscriptions PushSubscription[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -273,4 +274,22 @@ model Notification {
   @@index([restaurantId, read])
   @@index([restaurantId])
   @@index([restaurantId, createdAt])
+}
+
+// ─── PushSubscription ─────────────────────────────────────────────────────────
+// One row per browser/device that opted into push notifications for a restaurant.
+
+model PushSubscription {
+  id           String   @id @default(cuid())
+  restaurantId String
+  endpoint     String   @unique
+  p256dh       String
+  auth         String
+  userAgent    String?
+
+  restaurant Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@index([restaurantId])
 }
