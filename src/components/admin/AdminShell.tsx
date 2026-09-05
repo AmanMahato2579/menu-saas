@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import type { AdminUser } from "@/types";
 import AdminSidebar from "./AdminSidebar";
 import AdminHeader from "./AdminHeader";
+import PushNotificationPrompt from "./PushNotificationPrompt";
 
 interface AdminShellProps {
   user: AdminUser;
@@ -50,7 +51,10 @@ export default function AdminShell({ user, initialUnreadCount, children }: Admin
           initialUnreadCount={initialUnreadCount}
           onMenuClick={toggleSidebar}
         />
-        <main className="flex-1 overflow-y-auto p-4 md:p-6">{children}</main>
+        <main className="flex-1 overflow-y-auto p-4 md:p-6">
+          <PushNotificationPrompt />
+          {children}
+        </main>
       </div>
     </div>
   );

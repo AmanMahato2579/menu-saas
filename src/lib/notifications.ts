@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { NotificationType } from "@prisma/client";
+import { sendPushToRestaurant } from "@/lib/push";
 
 interface CreateNotificationInput {
   restaurantId: string;
@@ -10,7 +11,7 @@ interface CreateNotificationInput {
 }
 
 export async function createNotification(input: CreateNotificationInput) {
-  return prisma.notification.create({
+  const notification = await prisma.notification.create({
     data: {
       restaurantId: input.restaurantId,
       type: input.type,
@@ -19,6 +20,15 @@ export async function createNotification(input: CreateNotificationInput) {
       link: input.link ?? null,
     },
   });
+
+  // Best-effort: a push failure should never break notification creation.
+  sendPushToRestaurant(input.restaurantId, {
+    title: input.title,
+    message: input.message,
+    link: input.link,
+  }).catch(() => {});
+
+  return notification;
 }
 
 export function getUnreadCount(restaurantId: string) {
