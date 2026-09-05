@@ -2,7 +2,7 @@
 
 import { useState, Suspense } from "react";
 import { signIn, getSession } from "next-auth/react";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -20,6 +20,7 @@ const loginSchema = z.object({
 type LoginFormData = z.infer<typeof loginSchema>;
 
 function LoginForm() {
+  const router = useRouter();
   const searchParams = useSearchParams();
   const urlError = searchParams.get("error");
 
@@ -57,7 +58,7 @@ function LoginForm() {
       const session = await getSession();
       const role = (session?.user as { role?: string } | undefined)?.role;
 
-      window.location.href = role === "SUPER_ADMIN" ? "/super-admin" : "/admin";
+      router.push(role === "SUPER_ADMIN" ? "/super-admin" : "/admin");
     } catch (err) {
       console.error("Login submission error:", err);
       setError("An unexpected error occurred during sign in. Please try again.");

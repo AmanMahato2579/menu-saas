@@ -293,7 +293,7 @@ export default function MenuItemForm({ categories, defaultCategoryId, item }: Pr
           <div className="space-y-2 rounded-xl border bg-gray-50 p-3">
             <Label>Food Type</Label>
             <div className="flex gap-3">
-              <label className={`flex-1 flex items-center justify-center gap-2 cursor-pointer rounded-lg border-2 py-2.5 text-sm font-medium transition-all ${
+              <label className={`relative flex-1 flex items-center justify-center gap-2 cursor-pointer rounded-lg border-2 py-2.5 text-sm font-medium transition-all ${
                 foodType !== "NON_VEG" ? "border-green-500 bg-green-50 text-green-700" : "border-gray-200 bg-white text-gray-500 hover:border-gray-300"
               }`}>
                 <input
@@ -304,7 +304,7 @@ export default function MenuItemForm({ categories, defaultCategoryId, item }: Pr
                 />
                 <span className="text-lg">🟢</span> Veg
               </label>
-              <label className={`flex-1 flex items-center justify-center gap-2 cursor-pointer rounded-lg border-2 py-2.5 text-sm font-medium transition-all ${
+              <label className={`relative flex-1 flex items-center justify-center gap-2 cursor-pointer rounded-lg border-2 py-2.5 text-sm font-medium transition-all ${
                 foodType === "NON_VEG" ? "border-red-500 bg-red-50 text-red-700" : "border-gray-200 bg-white text-gray-500 hover:border-gray-300"
               }`}>
                 <input

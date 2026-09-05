@@ -108,9 +108,15 @@ export default function NotificationBell({ initialUnreadCount = 0 }: { initialUn
   }, []);
 
   React.useEffect(() => {
-    fetchNotifications();
-    const interval = setInterval(() => fetchNotifications(), POLL_INTERVAL);
-    return () => clearInterval(interval);
+    const run = () => {
+      void fetchNotifications();
+    };
+    const firstRun = setTimeout(run, 0);
+    const interval = setInterval(run, POLL_INTERVAL);
+    return () => {
+      clearTimeout(firstRun);
+      clearInterval(interval);
+    };
   }, [fetchNotifications]);
 
   const openDropdown = () => {

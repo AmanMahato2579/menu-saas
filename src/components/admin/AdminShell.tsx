@@ -13,12 +13,13 @@ interface AdminShellProps {
 }
 
 export default function AdminShell({ user, initialUnreadCount, children }: AdminShellProps) {
-  const [sidebarOpen, setSidebarOpen] = useState(false);
   const pathname = usePathname();
+  const [openedForPath, setOpenedForPath] = useState<string | null>(null);
+  const sidebarOpen = openedForPath === pathname;
 
-  useEffect(() => {
-    setSidebarOpen(false);
-  }, [pathname]);
+  const closeSidebar = () => setOpenedForPath(null);
+  const toggleSidebar = () =>
+    setOpenedForPath((prev) => (prev === pathname ? null : pathname));
 
   useEffect(() => {
     if (sidebarOpen) {
@@ -36,18 +37,18 @@ export default function AdminShell({ user, initialUnreadCount, children }: Admin
       {sidebarOpen && (
         <div
           className="fixed inset-0 z-40 bg-gray-950/60 md:hidden"
-          onClick={() => setSidebarOpen(false)}
+          onClick={closeSidebar}
           aria-hidden="true"
         />
       )}
 
-      <AdminSidebar user={user} open={sidebarOpen} onNavigate={() => setSidebarOpen(false)} />
+      <AdminSidebar user={user} open={sidebarOpen} onNavigate={closeSidebar} />
 
       <div className="flex-1 flex flex-col overflow-hidden min-w-0">
         <AdminHeader
           user={user}
           initialUnreadCount={initialUnreadCount}
-          onMenuClick={() => setSidebarOpen((prev) => !prev)}
+          onMenuClick={toggleSidebar}
         />
         <main className="flex-1 overflow-y-auto p-4 md:p-6">{children}</main>
       </div>
