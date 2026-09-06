@@ -1,6 +1,7 @@
 import { requireRestaurantAdmin } from "@/lib/auth-guard";
 import { prisma } from "@/lib/prisma";
 import { t } from "@/lib/i18n";
+import { startOfBusinessDay } from "@/lib/db";
 import NotificationsClient from "./NotificationsClient";
 
 export const metadata = { title: "Notifications – MenuQR Admin" };
@@ -11,12 +12,13 @@ export default async function NotificationsPage() {
 
   const [notifications, unreadCount, restaurant] = await Promise.all([
     prisma.notification.findMany({
-      where: { restaurantId: user.restaurantId! },
+      // Notifications reset at the start of the business day (00:00 local).
+      where: { restaurantId: user.restaurantId!, createdAt: { gte: startOfBusinessDay() } },
       orderBy: { createdAt: "desc" },
       take: 100,
     }),
     prisma.notification.count({
-      where: { restaurantId: user.restaurantId!, read: false },
+      where: { restaurantId: user.restaurantId!, createdAt: { gte: startOfBusinessDay() }, read: false },
     }),
     prisma.restaurant.findUnique({
       where: { id: user.restaurantId! },

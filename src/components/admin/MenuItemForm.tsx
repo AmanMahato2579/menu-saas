@@ -29,7 +29,6 @@ const itemSchema = z.object({
   hasNoteOption: z.boolean().default(true),
   ingredients: z.string().optional(),
   discountPercent: z.coerce.number().int().min(0).max(100).default(0),
-  foodType: z.enum(FOOD_TYPES).default("NONE"),
   variants: z.array(z.object({
     name: z.string().min(1, "Variant name is required"),
     price: z.coerce.number().positive("Variant price must be positive"),
@@ -103,7 +102,6 @@ export default function MenuItemForm({ categories, defaultCategoryId, item }: Pr
       isAvailable: item?.isAvailable ?? true,
       hasSpicyOption: item?.hasSpicyOption ?? false,
       hasNoteOption: item?.hasNoteOption ?? true,
-      foodType: normalizeFoodType(item?.foodType),
       variants: item?.variants?.map((variant) => ({
         name: variant.name,
         price: Number(variant.price),
@@ -116,7 +114,6 @@ export default function MenuItemForm({ categories, defaultCategoryId, item }: Pr
   const isAvailable = watch("isAvailable");
   const hasSpicyOption = watch("hasSpicyOption");
   const hasNoteOption = watch("hasNoteOption");
-  const foodType = watch("foodType");
   const watchedVariants = watch("variants");
 
   const onSubmit = async (data: ItemForm) => {
@@ -217,7 +214,7 @@ export default function MenuItemForm({ categories, defaultCategoryId, item }: Pr
                 variant="outline"
                 size="sm"
                 className="bg-white hover:bg-orange-50 border-orange-200 text-orange-600 font-semibold shrink-0"
-                onClick={() => addVariant({ name: "", price: 0, foodType: normalizeFoodType(foodType) })}
+                onClick={() => addVariant({ name: "", price: 0, foodType: "NONE" })}
               >
                 + Add Variant
               </Button>
@@ -296,61 +293,6 @@ export default function MenuItemForm({ categories, defaultCategoryId, item }: Pr
               className="appearance-none [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
             />
             {errors.discountPercent && <p className="text-red-500 text-xs">{errors.discountPercent.message}</p>}
-          </div>
-
-          {/* Food Type */}
-          <div className="space-y-2 rounded-xl border bg-gray-50 p-3">
-            <Label>Food Type</Label>
-            <div className="flex flex-wrap gap-3">
-              <label
-                className={`relative flex-1 flex items-center justify-center gap-2 cursor-pointer rounded-lg border-2 py-2.5 text-sm font-medium transition-all ${
-                  foodType === "VEG"
-                    ? "border-green-500 bg-green-50 text-green-700"
-                    : "border-gray-200 bg-white text-gray-500 hover:border-gray-300"
-                }`}
-              >
-                <input
-                  type="radio"
-                  value="VEG"
-                  {...register("foodType")}
-                  className="sr-only"
-                />
-                <span className="text-lg">🟢</span> Veg
-              </label>
-              <label
-                className={`relative flex-1 flex items-center justify-center gap-2 cursor-pointer rounded-lg border-2 py-2.5 text-sm font-medium transition-all ${
-                  foodType === "NON_VEG"
-                    ? "border-red-500 bg-red-50 text-red-700"
-                    : "border-gray-200 bg-white text-gray-500 hover:border-gray-300"
-                }`}
-              >
-                <input
-                  type="radio"
-                  value="NON_VEG"
-                  {...register("foodType")}
-                  className="sr-only"
-                />
-                <span className="text-lg">🔴</span> Non-Veg
-              </label>
-              <label
-                className={`relative flex basis-full sm:basis-0 flex-1 items-center justify-center gap-2 cursor-pointer rounded-lg border-2 py-2.5 text-sm font-medium transition-all ${
-                  foodType === "NONE"
-                    ? "border-gray-500 bg-gray-100 text-gray-700"
-                    : "border-gray-200 bg-white text-gray-500 hover:border-gray-300"
-                }`}
-              >
-                <input
-                  type="radio"
-                  value="NONE"
-                  {...register("foodType")}
-                  className="sr-only"
-                />
-                <span className="text-lg">⚪</span> None / Other
-              </label>
-            </div>
-            <p className="text-xs text-gray-400 mt-1">
-              Use <strong>None / Other</strong> for drinks, beverages, snacks and other non-food items. No Veg/Non-Veg indicator will be shown for these.
-            </p>
           </div>
 
           {/* Toggles */}

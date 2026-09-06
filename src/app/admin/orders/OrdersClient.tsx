@@ -193,12 +193,12 @@ export default function OrdersClient({ orders, currentStatus, restaurant }: Prop
   };
 
   // Filter orders for display
-  // 1. "All Orders" tab: show every order within the 24-hour retention window.
+  // 1. "All Orders" tab: show every order from the start of today.
   // 2. Running view (pinned): hide COMPLETED & REJECTED + already-closed sessions
   //    so the kitchen only sees live work.
   // 3. Explicit status tabs (Pending..Rejected): show matching orders.
   const displayedOrders = orders.filter((order) => {
-    if (currentStatus === "ALL") return true; // All tab: every order (24h retention)
+    if (currentStatus === "ALL") return true; // All tab: every order since midnight
     if (order.tableSession?.status === "CLOSED") return false;
     if (currentStatus) return true; // Explicit tab selected (e.g. Completed or Rejected tab)
     return order.status !== "COMPLETED" && order.status !== "REJECTED"; // Running orders view
@@ -302,7 +302,7 @@ export default function OrdersClient({ orders, currentStatus, restaurant }: Prop
   const isAllView = currentStatus === "ALL";
 
   // Sort sessions for a stable, useful order:
-  //  - "All Session Bills (Last 24h)" lists by most-recent activity (last order).
+  //  - "All Session Bills (Today)" lists by most-recent activity (last order).
   //  - Running view puts tables ready for checkout on top, then most-recent.
   sessionSummaries.sort((a, b) => {
     if (isAllView) {
@@ -350,11 +350,11 @@ export default function OrdersClient({ orders, currentStatus, restaurant }: Prop
                 </div>
                 <div>
                   <CardTitle className="text-lg font-bold text-gray-900">
-                    {isAllView ? t(lang, "All Session Bills (Last 24h)", "सबै सेसन बिलहरू (पछिल्लो २४ घण्टा)") : t(lang, "Table Session Checkout Box", "टेबल सेसन चेकआउट बक्स")}
+                    {isAllView ? t(lang, "All Session Bills (Today)", "आजका सेसन बिलहरू") : t(lang, "Table Session Checkout Box", "टेबल सेसन चेकआउट बक्स")}
                   </CardTitle>
                   <p className="text-xs text-gray-600">
                     {isAllView
-                      ? t(lang, "Every session's full bill for the last 24 hours — the same figures shown in your analytics.", "पछिल्लो २४ घण्टाका हरेक सेसनको पूरा बिल — तपाईंको एनालिटिक्समा देखाइएकै संख्याहरू।")
+                      ? t(lang, "Every session's full bill for today — the same figures shown in your analytics. Resets at midnight.", "आजका हरेक सेसनको पूरा बिल — तपाईंको एनालिटिक्समा देखाइएकै संख्याहरू। मध्यरातमा रिसेट हुन्छ।")
                       : t(lang, "All completed orders are grouped here into a single combined bill for 1-click checkout.", "सबै सम्पन्न अर्डरहरू यहाँ एक-क्लिक चेकआउटका लागि एउटै संयुक्त बिलमा समूहबद्ध गरिएका छन्।")}
                   </p>
                 </div>
@@ -451,7 +451,7 @@ export default function OrdersClient({ orders, currentStatus, restaurant }: Prop
         <div className="text-center py-16 bg-white rounded-2xl border border-dashed border-gray-300">
           <ClipboardListEmpty />
           <p className="text-base font-semibold text-gray-600 mt-4">
-            {t(lang, "No orders in the last 24 hours", "पछिल्लो २४ घण्टामा कुनै अर्डर छैन")}
+            {t(lang, "No orders today yet", "आज कुनै अर्डर छैन")}
           </p>
           <p className="text-xs text-gray-400 mt-1">
             {t(lang, "New orders and their session bills will appear here.", "नयाँ अर्डर र तिनका सेसन बिलहरू यहाँ देखिनेछन्।")}

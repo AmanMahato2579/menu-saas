@@ -14,7 +14,6 @@ const itemSchema = z.object({
   hasNoteOption: z.boolean().default(true),
   ingredients: z.string().optional().nullable(),
   discountPercent: z.coerce.number().int().min(0).max(100).default(0),
-  foodType: z.enum(["VEG", "NON_VEG", "NONE"]).default("NONE"),
   variants: z.array(z.object({
     name: z.string().trim().min(1).max(50),
     price: z.coerce.number().positive(),
@@ -33,6 +32,13 @@ const itemSchema = z.object({
 async function getRestaurantId(): Promise<string | null> {
   const session = await auth();
   return (session?.user as { restaurantId?: string | null })?.restaurantId ?? null;
+}
+
+/** The item-level food type is derived from its variants (no separate input). */
+function deriveFoodType(variants: { foodType?: string | null }[]): "VEG" | "NON_VEG" | "NONE" {
+  if (variants.some((v) => v.foodType === "NON_VEG")) return "NON_VEG";
+  if (variants.some((v) => v.foodType === "VEG")) return "VEG";
+  return "NONE";
 }
 
 export async function POST(req: Request) {
@@ -60,6 +66,7 @@ export async function POST(req: Request) {
       ...parsed.data,
       price: finalPrice,
       restaurantId,
+      foodType: deriveFoodType(parsed.data.variants),
       imageUrl: parsed.data.imageUrl || null,
       variants: { create: parsed.data.variants },
     },

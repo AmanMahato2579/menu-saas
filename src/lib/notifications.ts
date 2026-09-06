@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { NotificationType } from "@prisma/client";
 import { sendPushToRestaurant } from "@/lib/push";
+import { startOfBusinessDay } from "@/lib/db";
 
 interface CreateNotificationInput {
   restaurantId: string;
@@ -39,7 +40,7 @@ export function getUnreadCount(restaurantId: string) {
 
 export function getRecentNotifications(restaurantId: string, take = 10) {
   return prisma.notification.findMany({
-    where: { restaurantId },
+    where: { restaurantId, createdAt: { gte: startOfBusinessDay() } },
     orderBy: { createdAt: "desc" },
     take,
   });
