@@ -32,7 +32,7 @@ export async function POST(
         tableSessionId: { in: sessionIds },
         status: { notIn: ["COMPLETED", "REJECTED"] },
       },
-      data: { status: "COMPLETED" },
+      data: { status: "COMPLETED", statusChangedAt: new Date() },
     });
   }
 

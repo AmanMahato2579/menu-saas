@@ -117,10 +117,14 @@ export default function MenuItemModal({ item, currency, onClose, onAddToCart }: 
                   >
                     <div className="flex items-center justify-between gap-1">
                       <p className="font-medium text-sm text-gray-900 truncate">{entry.name}</p>
-                      {entry.foodType && (
-                        <span className="text-xs" title={entry.foodType === "NON_VEG" ? "Non-Veg" : "Veg"}>
-                          {entry.foodType === "NON_VEG" ? "🔴" : "🟢"}
-                        </span>
+                      {entry.foodType === "NON_VEG" && (
+                        <span className="text-xs" title="Non-Veg">🔴</span>
+                      )}
+                      {entry.foodType === "VEG" && (
+                        <span className="text-xs" title="Veg">🟢</span>
+                      )}
+                      {(!entry.foodType || (entry.foodType !== "VEG" && entry.foodType !== "NON_VEG")) && (
+                        <span className="text-xs text-gray-400" title="Other">⚪</span>
                       )}
                     </div>
                     <p className="text-xs font-semibold text-orange-600 mt-1">{formatCurrency(entry.price, currency)}</p>

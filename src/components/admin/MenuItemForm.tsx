@@ -15,6 +15,9 @@ import { Select, SelectItem } from "@/components/ui/select";
 import { useToast } from "@/components/ui/toast";
 import { Loader2, ArrowLeft } from "lucide-react";
 
+const FOOD_TYPES = ["VEG", "NON_VEG", "NONE"] as const;
+type FoodType = (typeof FOOD_TYPES)[number];
+
 const itemSchema = z.object({
   categoryId: z.string().min(1, "Category is required"),
   name: z.string().min(1, "Name is required").max(100),
@@ -26,11 +29,11 @@ const itemSchema = z.object({
   hasNoteOption: z.boolean().default(true),
   ingredients: z.string().optional(),
   discountPercent: z.coerce.number().int().min(0).max(100).default(0),
-  foodType: z.enum(["VEG", "NON_VEG"]).default("VEG"),
+  foodType: z.enum(FOOD_TYPES).default("NONE"),
   variants: z.array(z.object({
     name: z.string().min(1, "Variant name is required"),
     price: z.coerce.number().positive("Variant price must be positive"),
-    foodType: z.enum(["VEG", "NON_VEG"]).default("VEG"),
+    foodType: z.enum(FOOD_TYPES).default("NONE"),
   })).default([]),
 }).superRefine((data, ctx) => {
   if ((!data.variants || data.variants.length === 0) && (!data.price || data.price <= 0)) {
@@ -65,6 +68,11 @@ interface MenuItem {
   variants?: { id: string; name: string; price: string; foodType?: string | null }[];
 }
 
+/** Normalize legacy/unknown food-type values to the supported set. */
+function normalizeFoodType(value: string | null | undefined): FoodType {
+  return value === "VEG" || value === "NON_VEG" || value === "NONE" ? value : "NONE";
+}
+
 interface Props {
   categories: Category[];
   defaultCategoryId?: string;
@@ -95,11 +103,11 @@ export default function MenuItemForm({ categories, defaultCategoryId, item }: Pr
       isAvailable: item?.isAvailable ?? true,
       hasSpicyOption: item?.hasSpicyOption ?? false,
       hasNoteOption: item?.hasNoteOption ?? true,
-      foodType: (item?.foodType === "NON_VEG" ? "NON_VEG" : "VEG") as "VEG" | "NON_VEG",
+      foodType: normalizeFoodType(item?.foodType),
       variants: item?.variants?.map((variant) => ({
         name: variant.name,
         price: Number(variant.price),
-        foodType: (variant.foodType === "NON_VEG" ? "NON_VEG" : "VEG") as "VEG" | "NON_VEG",
+        foodType: normalizeFoodType(variant.foodType),
       })) ?? [],
     },
   });
@@ -201,7 +209,7 @@ export default function MenuItemForm({ categories, defaultCategoryId, item }: Pr
               <div>
                 <Label className="text-sm font-semibold">Item Variants (Optional)</Label>
                 <p className="text-xs text-gray-500 mt-0.5">
-                  Add different portions or types (e.g. Veg / Chicken / Buff, Half / Full), each with its own price & Veg/Non-Veg option.
+                  Add different portions or types (e.g. Veg / Chicken / Buff, Half / Full, Small / Medium / Large), each with its own price &amp; food type (Veg, Non-Veg, or None/Other).
                 </p>
               </div>
               <Button
@@ -209,7 +217,7 @@ export default function MenuItemForm({ categories, defaultCategoryId, item }: Pr
                 variant="outline"
                 size="sm"
                 className="bg-white hover:bg-orange-50 border-orange-200 text-orange-600 font-semibold shrink-0"
-                onClick={() => addVariant({ name: "", price: 0, foodType: foodType || "VEG" })}
+                onClick={() => addVariant({ name: "", price: 0, foodType: normalizeFoodType(foodType) })}
               >
                 + Add Variant
               </Button>
@@ -238,6 +246,7 @@ export default function MenuItemForm({ categories, defaultCategoryId, item }: Pr
                     >
                       <option value="VEG">🟢 Veg</option>
                       <option value="NON_VEG">🔴 Non-Veg</option>
+                      <option value="NONE">⚪ None / Other</option>
                     </select>
                     <Button
                       type="button"
@@ -292,10 +301,14 @@ export default function MenuItemForm({ categories, defaultCategoryId, item }: Pr
           {/* Food Type */}
           <div className="space-y-2 rounded-xl border bg-gray-50 p-3">
             <Label>Food Type</Label>
-            <div className="flex gap-3">
-              <label className={`relative flex-1 flex items-center justify-center gap-2 cursor-pointer rounded-lg border-2 py-2.5 text-sm font-medium transition-all ${
-                foodType !== "NON_VEG" ? "border-green-500 bg-green-50 text-green-700" : "border-gray-200 bg-white text-gray-500 hover:border-gray-300"
-              }`}>
+            <div className="flex flex-wrap gap-3">
+              <label
+                className={`relative flex-1 flex items-center justify-center gap-2 cursor-pointer rounded-lg border-2 py-2.5 text-sm font-medium transition-all ${
+                  foodType === "VEG"
+                    ? "border-green-500 bg-green-50 text-green-700"
+                    : "border-gray-200 bg-white text-gray-500 hover:border-gray-300"
+                }`}
+              >
                 <input
                   type="radio"
                   value="VEG"
@@ -304,9 +317,13 @@ export default function MenuItemForm({ categories, defaultCategoryId, item }: Pr
                 />
                 <span className="text-lg">🟢</span> Veg
               </label>
-              <label className={`relative flex-1 flex items-center justify-center gap-2 cursor-pointer rounded-lg border-2 py-2.5 text-sm font-medium transition-all ${
-                foodType === "NON_VEG" ? "border-red-500 bg-red-50 text-red-700" : "border-gray-200 bg-white text-gray-500 hover:border-gray-300"
-              }`}>
+              <label
+                className={`relative flex-1 flex items-center justify-center gap-2 cursor-pointer rounded-lg border-2 py-2.5 text-sm font-medium transition-all ${
+                  foodType === "NON_VEG"
+                    ? "border-red-500 bg-red-50 text-red-700"
+                    : "border-gray-200 bg-white text-gray-500 hover:border-gray-300"
+                }`}
+              >
                 <input
                   type="radio"
                   value="NON_VEG"
@@ -315,7 +332,25 @@ export default function MenuItemForm({ categories, defaultCategoryId, item }: Pr
                 />
                 <span className="text-lg">🔴</span> Non-Veg
               </label>
+              <label
+                className={`relative flex basis-full sm:basis-0 flex-1 items-center justify-center gap-2 cursor-pointer rounded-lg border-2 py-2.5 text-sm font-medium transition-all ${
+                  foodType === "NONE"
+                    ? "border-gray-500 bg-gray-100 text-gray-700"
+                    : "border-gray-200 bg-white text-gray-500 hover:border-gray-300"
+                }`}
+              >
+                <input
+                  type="radio"
+                  value="NONE"
+                  {...register("foodType")}
+                  className="sr-only"
+                />
+                <span className="text-lg">⚪</span> None / Other
+              </label>
             </div>
+            <p className="text-xs text-gray-400 mt-1">
+              Use <strong>None / Other</strong> for drinks, beverages, snacks and other non-food items. No Veg/Non-Veg indicator will be shown for these.
+            </p>
           </div>
 
           {/* Toggles */}

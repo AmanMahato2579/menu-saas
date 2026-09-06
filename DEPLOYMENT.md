@@ -142,6 +142,10 @@ COPY . .
 # the public app URL is baked into the app at build time (QR links use it)
 ARG NEXT_PUBLIC_APP_URL
 ENV NEXT_PUBLIC_APP_URL=$NEXT_PUBLIC_APP_URL
+# the VAPID public key is baked in too — the browser needs it client-side to
+# subscribe to push notifications (see Step 4.6)
+ARG NEXT_PUBLIC_VAPID_PUBLIC_KEY
+ENV NEXT_PUBLIC_VAPID_PUBLIC_KEY=$NEXT_PUBLIC_VAPID_PUBLIC_KEY
 # placeholder values only — Prisma needs these to resolve its config during the
 # build; no real database connection happens at build time
 ENV DATABASE_URL=postgresql://dummy:dummy@localhost:5432/dummy
@@ -207,7 +211,23 @@ const nextConfig: NextConfig = {
 use the expanded version shown in Step 7 (it adds the app + database-migration
 services). We will replace the local file's content tomorrow.
 
-### 4.5 Commit and push
+### 4.6 Generate push notification (VAPID) keys
+
+New order notifications are pushed to the owner's phone/desktop even when the
+app isn't open, using the Web Push standard. This needs one keypair, generated
+once, that then lives in `.env` forever (do not regenerate it later — that
+would silently invalidate every device that already enabled notifications).
+
+Run this on your laptop (needs Node.js installed) and save the output — you'll
+paste it into `.env` in Step 6:
+
+```bash
+npx web-push generate-vapid-keys
+```
+
+It prints a `Public Key` and a `Private Key`. Keep both.
+
+### 4.7 Commit and push
 
 ```bash
 git add Dockerfile .dockerignore next.config.ts docker-compose.yml
@@ -286,6 +306,13 @@ Both commands should print a version number and no errors.
    # The public URL of the app (no trailing slash)
    NEXT_PUBLIC_APP_URL=https://<your-domain>
 
+   # Push notification keys — generate once with `npx web-push generate-vapid-keys`
+   # (Step 4.6). Never regenerate these later; it invalidates every device that
+   # already enabled notifications.
+   NEXT_PUBLIC_VAPID_PUBLIC_KEY=<BHdZWXqOJHDe2_DPcDbq6JJUMmAvt1FnN9KdsIqnC1XQCSYhxlW40DTGKCrmgmOjUmBeqsYQ5N9sZI2bGTdGzP0>
+   VAPID_PRIVATE_KEY=<C9urVxaHzlDFWdbsgpFahZ8_79V6qXk2xRgwXBff3Q4>
+   VAPID_SUBJECT=mailto:<your-support-email>
+
    # Database credentials (create a strong password, like: MyRest$2024!xQ7)
    POSTGRES_USER=menuuser
    POSTGRES_PASSWORD=<a-strong-database-password>
@@ -355,6 +382,7 @@ Both commands should print a version number and no errors.
          context: .
          args:
            NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL}
+           NEXT_PUBLIC_VAPID_PUBLIC_KEY: ${NEXT_PUBLIC_VAPID_PUBLIC_KEY}
        container_name: menu-saas-app
        restart: unless-stopped
        ports:
@@ -363,6 +391,8 @@ Both commands should print a version number and no errors.
          AUTH_SECRET: ${AUTH_SECRET}
          DATABASE_URL: ${DATABASE_URL}
          DIRECT_URL: ${DIRECT_URL}
+         VAPID_PRIVATE_KEY: ${VAPID_PRIVATE_KEY}
+         VAPID_SUBJECT: ${VAPID_SUBJECT}
        depends_on:
          postgres:
            condition: service_healthy
@@ -404,11 +434,12 @@ Both commands should print a version number and no errors.
    > `migrate` and `seed` are one-time helper jobs: `migrate` creates the
    > database tables, `seed` loads the demo restaurant so we can test.
    >
-   > `NEXT_PUBLIC_APP_URL` is given to the app as a **build argument**: the URL
-   > is fixed into the app's front-end code while building, so QR codes always
-   > link to `https://<your-domain>`. If you ever change the domain, update
-   > `.env` and rebuild the app (Step 13) — just setting the variable at
-   > runtime is not enough.
+   > `NEXT_PUBLIC_APP_URL` and `NEXT_PUBLIC_VAPID_PUBLIC_KEY` are given to the
+   > app as **build arguments**: they're fixed into the app's front-end code
+   > while building, so QR codes always link to `https://<your-domain>` and
+   > the browser can subscribe to push notifications with the right key. If
+   > you ever change the domain, update `.env` and rebuild the app (Step 13) —
+   > just setting the variable at runtime is not enough.
 
 2. Build the containers (this takes a few minutes the first time — normal):
 
@@ -659,6 +690,76 @@ it's 15 extra minutes and worth it since we have our first client.
 
 **Checkpoint:** `/var/backups/menu-saas/` contains at least one `.sql.gz` file,
 and `crontab -l` shows the nightly job.
+
+---
+
+## Step 13A — Schedule the 24-hour order-history cleanup (recommended)
+
+Completed/Rejected orders are always filtered to the last 24 hours at the query
+level, so old history is never sent to the admin UI. To also *physically remove*
+expired rows (freeing Supabase storage) run a nightly cleanup on the server.
+
+Create a cleanup script:
+
+```bash
+nano /root/cleanup-orders.sh
+```
+
+```bash
+#!/bin/bash
+# Delete COMPLETED / REJECTED orders whose 24-hour window has passed.
+# Uses statusChangedAt (the moment the order reached its final status).
+# Deleting an Order cascades to its OrderItems automatically.
+cd ~/app
+docker compose exec -T postgres psql -U ${POSTGRES_USER} ${POSTGRES_DB} -c "
+DELETE FROM \"Order\"
+WHERE \"status\" IN ('COMPLETED','REJECTED')
+  AND \"statusChangedAt\" < NOW() - INTERVAL '24 hours';
+"
+```
+
+Make it runnable and schedule it nightly:
+
+```bash
+chmod +x /root/cleanup-orders.sh
+crontab -e
+```
+
+Add this line (runs at 4:05 AM):
+
+```
+5 4 * * * /root/cleanup-orders.sh >> /var/log/menu-saas-cleanup.log 2>&1
+```
+
+The query filtering is the source of truth for the 24-hour window — the cron job
+only reclaims disk space and never changes what the UI shows.
+
+---
+
+## Step 13B — Android "Unsafe app blocked" warning (PWA)
+
+The app is a **web app (PWA)**, not a native Android app — there is no APK/AAB,
+no `targetSdkVersion`/Gradle configuration, and nothing for Android to build.
+
+The "Unsafe app blocked / built for an older version of Android" banner comes
+from the **installed PWA shortcut on the phone** (added via Chrome's "Add to
+Home screen"). The banner compares the PWA's manifest/web-app metadata with the
+latest Android requirements. It is a reminder banner, not an app-level failure.
+
+To resolve it on each test phone:
+
+1. Open Chrome → menu (⋮) → **History** → **Clear browsing data** → **Cached
+   images and files** (or long-press the MenuQR icon → Remove).
+2. Open the site again (`https://<your-domain>`), then Chrome menu (⋮) →
+   **Add to Home screen** → **Install**. This re-registers the PWA with the
+   newest metadata (fresh manifest + service worker), which clears the stale
+   warning.
+3. If the banner still shows, update Chrome on the phone
+   (Play Store → Update), then re-install the shortcut.
+
+No code change was required: `targetSdkVersion`/`compileSdkVersion` do not exist
+for a PWA. The `public/manifest.json` and `public/sw.js` already target modern
+Android (standalone display, maskable icons, portrait orientation).
 
 ---
 
