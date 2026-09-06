@@ -14,7 +14,7 @@ export default async function OrdersPage({ searchParams }: Props) {
   const params = await searchParams;
   const user = await requireRestaurantAdmin();
   const [orders, restaurant] = await Promise.all([
-    getAdminOrders(user.restaurantId!, params.status as OrderStatus | undefined),
+    getAdminOrders(user.restaurantId!, params.status as (OrderStatus | "ALL") | undefined),
     getRestaurantById(user.restaurantId!),
   ]);
 

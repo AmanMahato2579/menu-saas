@@ -14,11 +14,11 @@ const itemSchema = z.object({
   hasNoteOption: z.boolean().default(true),
   ingredients: z.string().optional().nullable(),
   discountPercent: z.coerce.number().int().min(0).max(100).default(0),
-  foodType: z.enum(["VEG", "NON_VEG"]).default("VEG"),
+  foodType: z.enum(["VEG", "NON_VEG", "NONE"]).default("NONE"),
   variants: z.array(z.object({
     name: z.string().trim().min(1).max(50),
     price: z.coerce.number().positive(),
-    foodType: z.enum(["VEG", "NON_VEG"]).optional().nullable(),
+    foodType: z.enum(["VEG", "NON_VEG", "NONE"]).optional().nullable(),
   })).max(20).default([]),
 }).superRefine((data, ctx) => {
   if ((!data.variants || data.variants.length === 0) && data.price <= 0) {

@@ -34,7 +34,7 @@ export default async function TablesPage() {
       <TablesClient
         tables={JSON.parse(JSON.stringify(tables))}
         restaurantSlug={restaurant?.slug ?? ""}
-        restaurantId={user.restaurantId!}
+        restaurantName={restaurant?.name ?? "Our Restaurant"}
       />
     </div>
   );

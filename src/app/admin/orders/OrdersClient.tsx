@@ -11,6 +11,7 @@ import { Loader2, FlameKindling, X, Users, CheckCircle2, Receipt, CreditCard, Ch
 
 const STATUS_TABS = [
   { label: "Running Orders", value: undefined },
+  { label: "All Orders", value: "ALL" },
   { label: "Pending", value: "PENDING" },
   { label: "Accepted", value: "ACCEPTED" },
   { label: "Preparing", value: "PREPARING" },
@@ -86,6 +87,7 @@ interface TableSessionSummary {
   customerName?: string | null;
   applyTax: boolean;
   applyServiceCharge: boolean;
+  isClosed: boolean;
   orders: Order[];
   totalOrdersCount: number;
   completedOrdersCount: number;
@@ -190,19 +192,23 @@ export default function OrdersClient({ orders, currentStatus, restaurant }: Prop
   };
 
   // Filter orders for display
-  // 1. Requirement 1: On "All" running orders view, hide COMPLETED & REJECTED orders
-  // 2. Hide orders belonging to already closed sessions
+  // 1. "All Orders" tab: show every order within the 24-hour retention window.
+  // 2. Running view (pinned): hide COMPLETED & REJECTED + already-closed sessions
+  //    so the kitchen only sees live work.
+  // 3. Explicit status tabs (Pending..Rejected): show matching orders.
   const displayedOrders = orders.filter((order) => {
+    if (currentStatus === "ALL") return true; // All tab: every order (24h retention)
     if (order.tableSession?.status === "CLOSED") return false;
     if (currentStatus) return true; // Explicit tab selected (e.g. Completed or Rejected tab)
     return order.status !== "COMPLETED" && order.status !== "REJECTED"; // Running orders view
   });
 
-  // Group orders by tableSession for Checkout Box
+  // Group orders by tableSession for the combined bill box.
+  // On the "All Orders" tab every session's full bill is shown (including
+  // already-closed ones); on the running view only live/recent sessions appear.
   const sessionMap = new Map<string, Order[]>();
   orders.forEach((order) => {
-    // Only group sessions that are active or have active running orders
-    if (order.tableSession?.status === "CLOSED" && (order.status === "COMPLETED" || order.status === "REJECTED")) return;
+    if (order.tableSession?.status === "CLOSED" && (order.status === "COMPLETED" || order.status === "REJECTED") && currentStatus !== "ALL") return;
     const sId = order.tableSession?.id;
     if (sId) {
       const existing = sessionMap.get(sId) || [];
@@ -218,6 +224,7 @@ export default function OrdersClient({ orders, currentStatus, restaurant }: Prop
       const customerName = first.tableSession?.customerName;
       const applyTax = first.tableSession?.applyTax ?? true;
       const applyServiceCharge = first.tableSession?.applyServiceCharge ?? true;
+      const isClosed = first.tableSession?.status === "CLOSED";
 
       const nonRejected = sessionOrders.filter((o) => o.status !== "REJECTED");
       const completedOrders = sessionOrders.filter((o) => o.status === "COMPLETED" || o.status === "REJECTED");
@@ -266,6 +273,7 @@ export default function OrdersClient({ orders, currentStatus, restaurant }: Prop
         customerName,
         applyTax,
         applyServiceCharge,
+        isClosed,
         orders: sessionOrders,
         totalOrdersCount: sessionOrders.length,
         completedOrdersCount: completedOrders.length,
@@ -288,6 +296,8 @@ export default function OrdersClient({ orders, currentStatus, restaurant }: Prop
   });
 
   const readyForCheckoutCount = sessionSummaries.filter((s) => s.isReadyForCheckout).length;
+
+  const isAllView = currentStatus === "ALL";
 
   return (
     <div className="space-y-6">
@@ -324,10 +334,12 @@ export default function OrdersClient({ orders, currentStatus, restaurant }: Prop
                 </div>
                 <div>
                   <CardTitle className="text-lg font-bold text-gray-900">
-                    Table Session Checkout Box
+                    {isAllView ? "All Session Bills (Last 24h)" : "Table Session Checkout Box"}
                   </CardTitle>
                   <p className="text-xs text-gray-600">
-                    All completed orders are grouped here into a single combined bill for 1-click checkout.
+                    {isAllView
+                      ? "Every session's full bill for the last 24 hours — the same figures shown in your analytics."
+                      : "All completed orders are grouped here into a single combined bill for 1-click checkout."}
                   </p>
                 </div>
               </div>
@@ -361,7 +373,11 @@ export default function OrdersClient({ orders, currentStatus, restaurant }: Prop
                           </span>
                         )}
                       </div>
-                      {session.isReadyForCheckout ? (
+                      {session.isClosed ? (
+                        <span className="text-xs font-bold text-gray-500 bg-gray-100 px-2.5 py-1 rounded-full flex items-center gap-1">
+                          <Receipt className="w-3.5 h-3.5 text-gray-400" /> Closed
+                        </span>
+                      ) : session.isReadyForCheckout ? (
                         <span className="text-xs font-bold text-green-700 bg-green-100 px-2.5 py-1 rounded-full flex items-center gap-1">
                           <CheckCircle2 className="w-3.5 h-3.5 text-green-600" /> Ready
                         </span>
@@ -374,7 +390,7 @@ export default function OrdersClient({ orders, currentStatus, restaurant }: Prop
 
                     <div className="text-xs text-gray-500 space-y-1 mb-3 bg-gray-50 p-2.5 rounded-xl border">
                       <p className="font-semibold text-gray-700">
-                        Total Items: {session.items.reduce((s, i) => s + i.quantity, 0)} ({session.items.length} dishes)
+                        {session.totalOrdersCount} Order{session.totalOrdersCount !== 1 ? "s" : ""} · {session.items.reduce((s, i) => s + i.quantity, 0)} Item{session.items.reduce((s, i) => s + i.quantity, 0) !== 1 ? "s" : ""} ({session.items.length} dishes)
                       </p>
                       <p className="font-extrabold text-sm text-orange-600">
                         Total Bill: {formatCurrency(session.grandTotal, restaurant?.currency)}
@@ -382,7 +398,15 @@ export default function OrdersClient({ orders, currentStatus, restaurant }: Prop
                     </div>
                   </div>
 
-                  {session.isReadyForCheckout ? (
+                  {session.isClosed ? (
+                    <Button
+                      variant="outline"
+                      onClick={() => setActiveCheckoutSession(session)}
+                      className="w-full border-gray-300 text-gray-700 hover:bg-gray-50 text-xs font-semibold h-9 rounded-xl"
+                    >
+                      View Session Bill
+                    </Button>
+                  ) : session.isReadyForCheckout ? (
                     <Button
                       onClick={() => setActiveCheckoutSession(session)}
                       className="w-full bg-green-600 hover:bg-green-700 text-white font-bold h-11 text-sm rounded-xl shadow-md flex items-center justify-center gap-2"
@@ -411,7 +435,11 @@ export default function OrdersClient({ orders, currentStatus, restaurant }: Prop
       <div>
         <div className="flex items-center justify-between mb-3">
           <h2 className="text-lg font-bold text-gray-900">
-            {currentStatus ? `${getOrderStatusLabel(currentStatus)} Orders` : "Running Kitchen Orders"}
+            {currentStatus === "ALL"
+              ? "All Orders (Last 24h)"
+              : currentStatus
+                ? `${getOrderStatusLabel(currentStatus)} Orders`
+                : "Running Kitchen Orders"}
           </h2>
           <span className="text-xs text-gray-500 font-medium">
             {displayedOrders.length} order{displayedOrders.length !== 1 ? "s" : ""}
@@ -421,9 +449,17 @@ export default function OrdersClient({ orders, currentStatus, restaurant }: Prop
         {displayedOrders.length === 0 ? (
           <div className="text-center py-16 bg-white rounded-2xl border border-dashed border-gray-300">
             <ClipboardListEmpty />
-            <p className="text-base font-semibold text-gray-600 mt-4">No active running orders</p>
+            <p className="text-base font-semibold text-gray-600 mt-4">
+              {currentStatus === "ALL"
+                ? "No orders in the last 24 hours"
+                : "No active running orders"}
+            </p>
             <p className="text-xs text-gray-400 mt-1">
-              {currentStatus ? `No ${getOrderStatusLabel(currentStatus)} orders found.` : "All orders are served or checked out."}
+              {currentStatus === "ALL"
+                ? "New orders and their session bills will appear here."
+                : currentStatus
+                  ? `No ${getOrderStatusLabel(currentStatus)} orders found.`
+                  : "All orders are served or checked out."}
             </p>
           </div>
         ) : (
@@ -563,7 +599,7 @@ export default function OrdersClient({ orders, currentStatus, restaurant }: Prop
                   <p className="text-xs text-orange-100 mt-0.5">
                     {activeCheckoutSession.customerName
                       ? `Guest: ${activeCheckoutSession.customerName}`
-                      : "Dine-in Customer"} · {activeCheckoutSession.totalOrdersCount} Order{activeCheckoutSession.totalOrdersCount > 1 ? "s" : ""} Total
+                      : "Dine-in Customer"} · {activeCheckoutSession.totalOrdersCount} Order{activeCheckoutSession.totalOrdersCount > 1 ? "s" : ""} Total{activeCheckoutSession.isClosed ? " · Session Closed" : ""}
                   </p>
                 </div>
               </div>
@@ -629,6 +665,7 @@ export default function OrdersClient({ orders, currentStatus, restaurant }: Prop
 
             {/* Modal Footer: 1-Click Big Checkout Button (NO TYPING!) */}
             <div className="p-6 bg-gray-50 border-t flex gap-3">
+              {!activeCheckoutSession.isClosed && (
               <Button
                 disabled={!activeCheckoutSession.isReadyForCheckout || endingSession}
                 onClick={() =>
@@ -648,6 +685,7 @@ export default function OrdersClient({ orders, currentStatus, restaurant }: Prop
                   </>
                 )}
               </Button>
+            )}
               <Button
                 variant="outline"
                 onClick={() => setActiveCheckoutSession(null)}

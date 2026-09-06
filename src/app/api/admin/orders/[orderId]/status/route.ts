@@ -48,7 +48,7 @@ export async function PATCH(
 
   const updated = await prisma.order.update({
     where: { id: orderId },
-    data: { status: parsed.data.status },
+    data: { status: parsed.data.status, statusChangedAt: new Date() },
   });
 
   if (parsed.data.status === "REJECTED") {

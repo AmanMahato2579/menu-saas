@@ -15,12 +15,12 @@ const patchSchema = z.object({
   hasNoteOption: z.boolean().optional(),
   ingredients: z.string().optional().nullable(),
   discountPercent: z.coerce.number().int().min(0).max(100).optional(),
-  foodType: z.enum(["VEG", "NON_VEG"]).optional().nullable(),
+  foodType: z.enum(["VEG", "NON_VEG", "NONE"]).optional().nullable(),
   variants: z.array(z.object({
     id: z.string().optional(),
     name: z.string().trim().min(1).max(50),
     price: z.coerce.number().positive(),
-    foodType: z.enum(["VEG", "NON_VEG"]).optional().nullable(),
+    foodType: z.enum(["VEG", "NON_VEG", "NONE"]).optional().nullable(),
     isAvailable: z.boolean().optional(),
   })).max(20).optional(),
 });

@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useTransition, useRef } from "react";
+import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { QRCodeSVG } from "qrcode.react";
+import QRCode from "qrcode";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,7 +14,6 @@ import {
   Plus,
   Trash2,
   Download,
-  Printer,
   RefreshCw,
   Loader2,
   CheckCircle,
@@ -31,7 +31,7 @@ interface Table {
 interface Props {
   tables: Table[];
   restaurantSlug: string;
-  restaurantId: string;
+  restaurantName: string;
 }
 
 const getAppUrl = () => {
@@ -39,15 +39,183 @@ const getAppUrl = () => {
   return process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
 };
 
-export default function TablesClient({ tables, restaurantSlug, restaurantId }: Props) {
+// ─── QR poster helpers ─────────────────────────────────────────────────────────
+
+function roundedRect(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+  r: number
+) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.arcTo(x + w, y, x + w, y + h, r);
+  ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r);
+  ctx.arcTo(x, y, x + w, y, r);
+  ctx.closePath();
+}
+
+function drawCenteredText(
+  ctx: CanvasRenderingContext2D,
+  text: string,
+  x: number,
+  y: number,
+  font: string,
+  color: string,
+  maxWidth = 760
+) {
+  ctx.font = font;
+  ctx.fillStyle = color;
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  if (ctx.measureText(text).width > maxWidth) {
+    let size = parseInt(font.match(/(\d+)px/)?.[1] ?? "40", 10);
+    let fitted = text;
+    while (size > 12 && ctx.measureText(fitted).width > maxWidth) {
+      size -= 2;
+      ctx.font = font.replace(/(\d+)px/, `${size}px`);
+      fitted = text.length > 3 ? `${text.slice(0, -2)}…` : fitted;
+    }
+    text = fitted;
+    ctx.font = font.replace(/(\d+)px/, `${size}px`);
+  }
+  ctx.fillText(text, x, y);
+}
+
+function wrapText(
+  ctx: CanvasRenderingContext2D,
+  text: string,
+  x: number,
+  y: number,
+  maxWidth: number,
+  lineHeight: number,
+  font: string,
+  color: string
+) {
+  ctx.font = font;
+  ctx.fillStyle = color;
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  const words = text.split(" ");
+  const lines: string[] = [];
+  let line = "";
+  for (const word of words) {
+    const test = line ? `${line} ${word}` : word;
+    if (ctx.measureText(test).width > maxWidth && line) {
+      lines.push(line);
+      line = word;
+    } else {
+      line = test;
+    }
+  }
+  if (line) lines.push(line);
+  const startY = y - ((lines.length - 1) * lineHeight) / 2;
+  lines.forEach((l, i) => ctx.fillText(l, x, startY + i * lineHeight));
+}
+
+async function generateQrPoster(qrUrl: string, tableNumber: number, restaurantName: string) {
+  const W = 1000;
+  const H = 1400;
+
+  // High-res QR code (pure black on a white card for maximum contrast/scannability).
+  const qrDataUrl = await QRCode.toDataURL(qrUrl, {
+    margin: 2,
+    width: 640,
+    errorCorrectionLevel: "M",
+    color: { dark: "#000000", light: "#ffffff" },
+  });
+
+  const canvas = document.createElement("canvas");
+  canvas.width = W;
+  canvas.height = H;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return null;
+
+  // Dark background gradient
+  const bg = ctx.createLinearGradient(0, 0, W, H);
+  bg.addColorStop(0, "#0b0f19");
+  bg.addColorStop(0.5, "#101726");
+  bg.addColorStop(1, "#0b0f19");
+  ctx.fillStyle = bg;
+  ctx.fillRect(0, 0, W, H);
+
+  // Subtle radial glow behind the QR card
+  const glow = ctx.createRadialGradient(W / 2, H / 2, 0, W / 2, H / 2, 480);
+  glow.addColorStop(0, "rgba(255, 107, 53, 0.18)");
+  glow.addColorStop(1, "rgba(255, 107, 53, 0)");
+  ctx.fillStyle = glow;
+  ctx.fillRect(0, 0, W, H);
+
+  // Top accent line
+  ctx.fillStyle = "#ff6b35";
+  ctx.fillRect(0, 0, W, 12);
+
+  // Brand header
+  drawCenteredText(ctx, restaurantName, W / 2, 130, "800 58px Inter, sans-serif", "#ffffff", 820);
+  drawCenteredText(ctx, "DIGITAL MENU — ORDER FROM YOUR TABLE", W / 2, 205, "600 26px Inter, sans-serif", "#8b93a7", 760);
+
+  // White QR card (keeps a proper quiet zone around the code)
+  const cardX = 100;
+  const cardY = 260;
+  const cardW = W - 200;
+  const cardH = 760;
+
+  ctx.shadowColor = "rgba(0, 0, 0, 0.55)";
+  ctx.shadowBlur = 60;
+  ctx.shadowOffsetY = 12;
+  roundedRect(ctx, cardX, cardY, cardW, cardH, 36);
+  ctx.fillStyle = "#ffffff";
+  ctx.fill();
+  ctx.shadowColor = "transparent";
+  ctx.shadowBlur = 0;
+  ctx.shadowOffsetY = 0;
+
+  // QR image inside the white card
+  const qrImg = new Image();
+  qrImg.src = qrDataUrl;
+  await new Promise((resolve, reject) => {
+    qrImg.onload = resolve;
+    qrImg.onerror = reject;
+  });
+  const qrSize = 560;
+  const qrX = cardX + (cardW - qrSize) / 2;
+  const qrY = cardY + 84;
+  ctx.drawImage(qrImg, qrX, qrY, qrSize, qrSize);
+
+  // Table label inside the card (below the QR, inside quiet margin)
+  drawCenteredText(ctx, `TABLE ${tableNumber}`, W / 2, cardY + cardH - 52, "800 40px Inter, sans-serif", "#0b0f19");
+
+  // Bottom section
+  wrapText(
+    ctx,
+    "Scan with your phone camera to view the menu & place your order",
+    W / 2,
+    H - 220,
+    680,
+    40,
+    "500 26px Inter, sans-serif",
+    "#c6cbd8"
+  );
+
+  // Footer divider + brand
+  ctx.fillStyle = "rgba(255, 255, 255, 0.12)";
+  ctx.fillRect(250, H - 150, W - 500, 1);
+  drawCenteredText(ctx, "Powered by MenuQR", W / 2, H - 92, "600 24px Inter, sans-serif", "#6c7488");
+
+  return canvas;
+}
+
+export default function TablesClient({ tables, restaurantSlug, restaurantName }: Props) {
   const router = useRouter();
   const { toast } = useToast();
   const [, startTransition] = useTransition();
   const [newTableNumber, setNewTableNumber] = useState("");
   const [adding, setAdding] = useState(false);
-  const [showQrFor, setShowQrFor] = useState<string | null>(null);
+  const [downloadingId, setDownloadingId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
-  const qrRef = useRef<HTMLDivElement>(null);
 
   const getQRUrl = (token: string) =>
     `${getAppUrl()}/r/${restaurantSlug}/t/${token}`;
@@ -94,33 +262,23 @@ export default function TablesClient({ tables, restaurantSlug, restaurantId }: P
     startTransition(() => router.refresh());
   };
 
-  const downloadQR = (table: Table) => {
-    const svg = document.getElementById(`qr-svg-${table.id}`);
-    if (!svg) return;
-    const svgData = new XMLSerializer().serializeToString(svg);
-    const canvas = document.createElement("canvas");
-    canvas.width = 400;
-    canvas.height = 500;
-    const ctx = canvas.getContext("2d")!;
-    const img = new Image();
-    const url = "data:image/svg+xml;base64," + btoa(unescape(encodeURIComponent(svgData)));
-    img.onload = () => {
-      ctx.fillStyle = "#ffffff";
-      ctx.fillRect(0, 0, 400, 500);
-      ctx.drawImage(img, 50, 80, 300, 300);
-      ctx.fillStyle = "#111827";
-      ctx.font = "bold 22px Inter, sans-serif";
-      ctx.textAlign = "center";
-      ctx.fillText("Table " + table.tableNumber, 200, 50);
-      ctx.font = "16px Inter, sans-serif";
-      ctx.fillStyle = "#6b7280";
-      ctx.fillText("Scan to view menu & order", 200, 430);
+  const downloadQR = async (table: Table) => {
+    if (downloadingId === table.id) return;
+    setDownloadingId(table.id);
+    try {
+      const qrUrl = getQRUrl(table.qrToken);
+      const poster = await generateQrPoster(qrUrl, table.tableNumber, restaurantName);
+      if (!poster) throw new Error("Could not render QR poster");
       const link = document.createElement("a");
       link.download = `table-${table.tableNumber}-qr.png`;
-      link.href = canvas.toDataURL("image/png");
+      link.href = poster.toDataURL("image/png");
       link.click();
-    };
-    img.src = url;
+    } catch (err) {
+      console.error("[QR Poster Error]:", err);
+      toast({ title: "Error", variant: "destructive", description: "Could not generate QR poster." });
+    } finally {
+      setDownloadingId(null);
+    }
   };
 
   return (
@@ -186,14 +344,17 @@ export default function TablesClient({ tables, restaurantSlug, restaurantId }: P
                   {/* QR Code */}
                   <div
                     id={`qr-container-${table.id}`}
-                    className="flex justify-center p-3 bg-white rounded-lg border"
+                    className="flex justify-center p-4 bg-white rounded-2xl border-2 border-gray-200 shadow-sm"
                   >
                     <QRCodeSVG
                       id={`qr-svg-${table.id}`}
                       value={qrUrl}
-                      size={140}
-                      level="M"
-                      includeMargin
+                      size={200}
+                      level="L"
+                      bgColor="#FFFFFF"
+                      fgColor="#000000"
+                      marginSize={2}
+                      title={`Scan to open menu — Table ${table.tableNumber}`}
                     />
                   </div>
 
@@ -209,8 +370,13 @@ export default function TablesClient({ tables, restaurantSlug, restaurantId }: P
                       size="sm"
                       className="bg-orange-500 hover:bg-orange-600 text-white text-xs"
                       onClick={() => downloadQR(table)}
+                      disabled={downloadingId === table.id}
                     >
-                      <Download className="w-3 h-3 mr-1" />
+                      {downloadingId === table.id ? (
+                        <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+                      ) : (
+                        <Download className="w-3 h-3 mr-1" />
+                      )}
                       Download
                     </Button>
                     {hasActiveSession && (
