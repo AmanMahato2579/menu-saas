@@ -3,14 +3,27 @@ import { Prisma, OrderStatus } from "@prisma/client";
 import { createNotification } from "@/lib/notifications";
 import { newOrderMessage, newOrderTitle, newTableSessionMessage, newTableSessionTitle } from "@/lib/i18n";
 
-// Completed/Rejected order history is retained for exactly 24 hours.
-// Retention is anchored to statusChangedAt (the moment the order reached its
-// final COMPLETED / REJECTED status) rather than createdAt, so the window
-// starts from the status change, as required.
-export const ORDER_HISTORY_RETENTION_HOURS = 24;
+// Completed/Rejected order history, dashboard analytics and notifications all
+// reset at the start of the business day (00:00 in the restaurant's timezone) —
+// a real calendar day, not a rolling 24-hour window. Nepal uses a fixed
+// UTC+05:45 offset with no DST, so midnight in Kathmandu equals the Nepal
+// calendar date's UTC midnight minus that offset. The date is resolved via the
+// Intl API so the boundary is identical on every host regardless of the
+// server's own timezone (e.g. Vercel runs UTC).
+const RESTAURANT_TIMEZONE_OFFSET_MS = (5 * 60 + 45) * 60 * 1000; // Asia/Kathmandu
+const KATHMANDU_DATE_FORMATTER = new Intl.DateTimeFormat("en-CA", {
+  timeZone: "Asia/Kathmandu",
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+});
 
-function retentionCutoff(): Date {
-  return new Date(Date.now() - ORDER_HISTORY_RETENTION_HOURS * 60 * 60 * 1000);
+export function startOfBusinessDay(): Date {
+  const [year, month, day] = KATHMANDU_DATE_FORMATTER
+    .format(new Date())
+    .split("-")
+    .map(Number);
+  return new Date(Date.UTC(year, month - 1, day) - RESTAURANT_TIMEZONE_OFFSET_MS);
 }
 
 // ─── Restaurant queries ───────────────────────────────────────────────────────
@@ -270,7 +283,7 @@ export async function getSessionBill(tableSessionId: string, restaurantId: strin
 // ─── Admin queries ────────────────────────────────────────────────────────────
 
 export async function getAdminOrders(restaurantId: string, status?: OrderStatus | "ALL") {
-  // COMPLETED / REJECTED history is bounded to the 24-hour retention window.
+  // COMPLETED / REJECTED history is bounded to the current business day.
   // Active statuses (PENDING..READY) have no history limit and are always live.
   const isHistoryStatus =
     status === "COMPLETED" || status === "REJECTED";
@@ -279,17 +292,17 @@ export async function getAdminOrders(restaurantId: string, status?: OrderStatus 
   if (status && status !== "ALL") where.status = status;
 
   if (isHistoryStatus) {
-    // Only fetch records inside the 24-hour window for history statuses. This
+    // Only fetch records since the start of today for history statuses. This
     // keeps the payload small and uses the composite index — no continuous
     // download of old orders.
-    where.statusChangedAt = { gte: retentionCutoff() };
+    where.statusChangedAt = { gte: startOfBusinessDay() };
   } else if (!status || status === "ALL") {
     // Running view (no explicit tab) and the "All Orders" tab: active orders
-    // are always live, while COMPLETED/REJECTED orders are bounded to the
-    // 24-hour retention window. "ALL" returns every order within that window.
+    // are always live, while COMPLETED/REJECTED orders are bounded to today.
+    // "ALL" returns every order from the start of today.
     where.OR = [
       { status: { in: ["PENDING", "ACCEPTED", "PREPARING", "READY"] } },
-      { status: { in: ["COMPLETED", "REJECTED"] }, statusChangedAt: { gte: retentionCutoff() } },
+      { status: { in: ["COMPLETED", "REJECTED"] }, statusChangedAt: { gte: startOfBusinessDay() } },
     ];
   }
 
@@ -305,14 +318,14 @@ export async function getAdminOrders(restaurantId: string, status?: OrderStatus 
 
 /**
  * Server-side physical cleanup of expired history rows (COMPLETED/REJECTED
- * older than the 24-hour window). This is intentionally NOT called from the
+ * from previous business days). This is intentionally NOT called from the
  * client on every request; run it via a scheduled job or cron on the server
  * (see DEPLOYMENT notes). Scoped to a single restaurant for tenant safety, or
  * across all restaurants when restaurantId is omitted. Never deletes active
  * orders.
  */
 export async function cleanupExpiredOrderHistory(restaurantId?: string) {
-  const cutoff = retentionCutoff();
+  const cutoff = startOfBusinessDay();
   const where: Prisma.OrderWhereInput = {
     statusChangedAt: { lt: cutoff },
     status: { in: ["COMPLETED", "REJECTED"] },
@@ -327,8 +340,9 @@ export async function cleanupExpiredOrderHistory(restaurantId?: string) {
 }
 
 export async function getDashboardStats(restaurantId: string) {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
+  // "Today" = the current business day in the restaurant's timezone, so all
+  // analytics reset at local midnight (00:00) rather than at a rolling 24h mark.
+  const today = startOfBusinessDay();
 
   const [
     todayOrders,

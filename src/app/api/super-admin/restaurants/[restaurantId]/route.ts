@@ -37,10 +37,20 @@ export async function DELETE(
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
   const { restaurantId } = await params;
-  
-  await prisma.restaurant.delete({
-    where: { id: restaurantId },
-  });
-  
-  return NextResponse.json({ success: true });
+
+  try {
+    // OrderItem rows reference MenuItem / MenuItemVariant without ON DELETE
+    // (order history must survive menu edits), so the cascade from
+    // Restaurant -> MenuItem is otherwise blocked. Clear the restaurant's
+    // order items first, then drop the restaurant (everything else cascades).
+    await prisma.$transaction([
+      prisma.orderItem.deleteMany({ where: { menuItem: { restaurantId } } }),
+      prisma.orderSequence.deleteMany({ where: { restaurantId } }),
+      prisma.restaurant.delete({ where: { id: restaurantId } }),
+    ]);
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error("[Restaurant Delete Error]:", error);
+    return NextResponse.json({ error: "Failed to delete restaurant: " + (error as Error).message }, { status: 500 });
+  }
 }

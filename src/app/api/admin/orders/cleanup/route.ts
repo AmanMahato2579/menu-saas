@@ -1,6 +1,6 @@
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { ORDER_HISTORY_RETENTION_HOURS } from "@/lib/db";
+import { startOfBusinessDay } from "@/lib/db";
 import { NextResponse } from "next/server";
 
 /**
@@ -21,7 +21,7 @@ export async function POST() {
   }
 
   try {
-    const cutoff = new Date(Date.now() - ORDER_HISTORY_RETENTION_HOURS * 60 * 60 * 1000);
+    const cutoff = startOfBusinessDay();
     const result = await prisma.order.deleteMany({
       where: {
         restaurantId,

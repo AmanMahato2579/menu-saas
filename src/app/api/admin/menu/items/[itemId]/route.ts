@@ -15,7 +15,6 @@ const patchSchema = z.object({
   hasNoteOption: z.boolean().optional(),
   ingredients: z.string().optional().nullable(),
   discountPercent: z.coerce.number().int().min(0).max(100).optional(),
-  foodType: z.enum(["VEG", "NON_VEG", "NONE"]).optional().nullable(),
   variants: z.array(z.object({
     id: z.string().optional(),
     name: z.string().trim().min(1).max(50),
@@ -28,6 +27,13 @@ const patchSchema = z.object({
 async function getRestaurantId(): Promise<string | null> {
   const session = await auth();
   return (session?.user as { restaurantId?: string | null })?.restaurantId ?? null;
+}
+
+/** The item-level food type is derived from its variants (no separate input). */
+function deriveFoodType(variants: { foodType?: string | null }[]): "VEG" | "NON_VEG" | "NONE" {
+  if (variants.some((v) => v.foodType === "NON_VEG")) return "NON_VEG";
+  if (variants.some((v) => v.foodType === "VEG")) return "VEG";
+  return "NONE";
 }
 
 export async function PATCH(
@@ -53,7 +59,14 @@ export async function PATCH(
     updateData.price = variants[0].price;
   }
 
-  if (variants) updateData.variants = { deleteMany: {}, create: variants.map(({ id: _id, ...variant }) => variant) };
+  if (variants) {
+    if (variants.length === 0) {
+      updateData.foodType = "NONE";
+    } else {
+      updateData.foodType = deriveFoodType(variants);
+    }
+    updateData.variants = { deleteMany: {}, create: variants.map(({ id: _id, ...variant }) => variant) };
+  }
   const updated = await prisma.menuItem.update({ where: { id: itemId }, data: updateData });
   return NextResponse.json(updated);
 }

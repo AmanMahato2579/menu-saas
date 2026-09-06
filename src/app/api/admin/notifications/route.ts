@@ -1,5 +1,6 @@
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { startOfBusinessDay } from "@/lib/db";
 import { NextResponse } from "next/server";
 
 async function getRestaurantId(): Promise<string | null> {
@@ -15,7 +16,9 @@ export async function GET(req: Request) {
   const unreadOnly = url.searchParams.get("unread") === "true";
   const limit = Math.min(Number(url.searchParams.get("limit") ?? 20) || 20, 50);
 
-  const where = { restaurantId, ...(unreadOnly ? { read: false } : {}) };
+  // Notifications reset at the start of the business day (00:00 local).
+  const dayStart = startOfBusinessDay();
+  const where = { restaurantId, createdAt: { gte: dayStart }, ...(unreadOnly ? { read: false } : {}) };
 
   const [notifications, unreadCount] = await Promise.all([
     prisma.notification.findMany({
@@ -23,7 +26,7 @@ export async function GET(req: Request) {
       orderBy: { createdAt: "desc" },
       take: limit,
     }),
-    prisma.notification.count({ where: { restaurantId, read: false } }),
+    prisma.notification.count({ where: { restaurantId, createdAt: { gte: dayStart }, read: false } }),
   ]);
 
   return NextResponse.json({ notifications, unreadCount });
