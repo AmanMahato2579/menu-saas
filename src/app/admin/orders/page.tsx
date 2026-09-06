@@ -1,6 +1,7 @@
 import { requireRestaurantAdmin } from "@/lib/auth-guard";
 import { getAdminOrders, getRestaurantById } from "@/lib/db";
 import { OrderStatus } from "@prisma/client";
+import { t } from "@/lib/i18n";
 import OrdersClient from "./OrdersClient";
 
 interface Props {
@@ -21,9 +22,11 @@ export default async function OrdersPage({ searchParams }: Props) {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">Orders & Table Checkout</h1>
+        <h1 className="text-2xl font-bold text-gray-900">
+          {t(restaurant?.language, "Orders & Table Checkout", "अर्डर र टेबल चेकआउट")}
+        </h1>
         <p className="text-gray-500 text-sm mt-1">
-          Manage kitchen orders and perform 1-click table checkout
+          {t(restaurant?.language, "Manage kitchen orders and perform 1-click table checkout", "किचन अर्डर व्यवस्थापन गर्नुहोस् र एक-क्लिक टेबल चेकआउट गर्नुहोस्")}
         </p>
       </div>
       <OrdersClient

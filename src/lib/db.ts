@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { Prisma, OrderStatus } from "@prisma/client";
 import { createNotification } from "@/lib/notifications";
+import { newOrderMessage, newOrderTitle, newTableSessionMessage, newTableSessionTitle } from "@/lib/i18n";
 
 // Completed/Rejected order history is retained for exactly 24 hours.
 // Retention is anchored to statusChangedAt (the moment the order reached its
@@ -54,13 +55,14 @@ export async function startTableSession(tableId: string, restaurantId: string, c
   // Notify the restaurant admin that a customer scanned the QR code
   const table = await prisma.table.findUnique({
     where: { id: tableId },
-    select: { tableNumber: true },
+    select: { tableNumber: true, restaurant: { select: { language: true } } },
   });
+  const lang = table?.restaurant?.language ?? "EN";
   await createNotification({
     restaurantId,
     type: "NEW_TABLE_SESSION",
-    title: "Guest arrived — service needed",
-    message: `${customerName?.trim() ? `${customerName.trim()} is` : "A guest is"} waiting at Table ${table?.tableNumber ?? tableId}. Please greet them.`,
+    title: newTableSessionTitle(lang),
+    message: newTableSessionMessage(lang, session.customerName, table?.tableNumber),
     link: "/admin/tables",
   });
 
@@ -122,7 +124,7 @@ export async function createOrder(input: CreateOrderInput) {
 
   const restaurant = await prisma.restaurant.findUnique({
     where: { id: restaurantId },
-    select: { isTaxEnabled: true, taxRate: true }
+    select: { isTaxEnabled: true, taxRate: true, language: true }
   });
 
   if (menuItems.length !== menuItemIds.length) {
@@ -198,13 +200,12 @@ export async function createOrder(input: CreateOrderInput) {
   const itemSummary = order.orderItems
     .map((i) => `${i.menuItemName} ×${i.quantity}`)
     .join(", ");
+  const lang = restaurant?.language ?? "EN";
   await createNotification({
     restaurantId,
     type: "NEW_ORDER",
-    title: `New order #${orderNumber}`,
-    message: tableNumber
-      ? `Table ${tableNumber} — ${itemSummary}`
-      : itemSummary,
+    title: newOrderTitle(lang, orderNumber),
+    message: newOrderMessage(lang, { orderNumber, tableNumber, itemSummary }),
     link: `/admin/orders?orderId=${order.id}`,
   });
 

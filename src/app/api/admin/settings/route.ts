@@ -10,6 +10,7 @@ const settingsSchema = z.object({
   phone: z.string().optional().nullable(),
   currency: z.string().default("Rs."),
   openingHours: z.string().optional().nullable(),
+  language: z.enum(["EN", "NEP"]).optional(),
   logoUrl: z.string().url().optional().nullable(),
   taxRate: z.coerce.number().min(0).max(100).optional(),
   isTaxEnabled: z.boolean().optional(),

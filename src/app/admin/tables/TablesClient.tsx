@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/components/ui/toast";
+import { t } from "@/lib/i18n";
 import {
   QrCode,
   Plus,
@@ -32,6 +33,7 @@ interface Props {
   tables: Table[];
   restaurantSlug: string;
   restaurantName: string;
+  language?: string;
 }
 
 const getAppUrl = () => {
@@ -208,10 +210,11 @@ async function generateQrPoster(qrUrl: string, tableNumber: number, restaurantNa
   return canvas;
 }
 
-export default function TablesClient({ tables, restaurantSlug, restaurantName }: Props) {
+export default function TablesClient({ tables, restaurantSlug, restaurantName, language = "EN" }: Props) {
   const router = useRouter();
   const { toast } = useToast();
   const [, startTransition] = useTransition();
+  const lang = language;
   const [newTableNumber, setNewTableNumber] = useState("");
   const [adding, setAdding] = useState(false);
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
@@ -223,7 +226,7 @@ export default function TablesClient({ tables, restaurantSlug, restaurantName }:
   const addTable = async () => {
     const num = parseInt(newTableNumber);
     if (isNaN(num) || num < 1) {
-      toast({ title: "Enter a valid table number", variant: "destructive" });
+      toast({ title: t(lang, "Enter a valid table number", "मान्य टेबल नम्बर प्रविष्ट गर्नुहोस्"), variant: "destructive" });
       return;
     }
     setAdding(true);
@@ -234,27 +237,27 @@ export default function TablesClient({ tables, restaurantSlug, restaurantName }:
     });
     setAdding(false);
     if (res.ok) {
-      toast({ title: `Table ${num} added`, variant: "success" });
+      toast({ title: `${t(lang, "Table", "टेबल")} ${num} ${t(lang, "added", "थपियो")}`, variant: "success" });
       setNewTableNumber("");
       startTransition(() => router.refresh());
     } else {
       const err = await res.json();
-      toast({ title: "Error", variant: "destructive", description: err.error });
+      toast({ title: t(lang, "Error", "त्रुटि"), variant: "destructive", description: err.error });
     }
   };
 
   const deleteTable = async (id: string, num: number) => {
-    if (!confirm(`Delete Table ${num}? This will close all active sessions.`)) return;
+    if (!confirm(t(lang, `Delete Table ${num}? This will close all active sessions.`, `टेबल ${num} मेट्ने हो? यसले सबै चालू सेसनहरू बन्द गर्नेछ।`))) return;
     setDeletingId(id);
     await fetch(`/api/admin/tables/${id}`, { method: "DELETE" });
     setDeletingId(null);
-    toast({ title: `Table ${num} deleted`, variant: "success" });
+    toast({ title: `${t(lang, "Table", "टेबल")} ${num} ${t(lang, "deleted", "मेटियो")}`, variant: "success" });
     startTransition(() => router.refresh());
   };
 
   const closeSession = async (tableId: string) => {
     await fetch(`/api/admin/tables/${tableId}/close-session`, { method: "POST" });
-    toast({ title: "Table session closed", variant: "success" });
+    toast({ title: t(lang, "Table session closed", "टेबल सेसन बन्द भयो"), variant: "success" });
     startTransition(() => router.refresh());
   };
   const toggleCharge = async (tableId: string, key: "applyTax" | "applyServiceCharge", value: boolean) => {
@@ -275,7 +278,7 @@ export default function TablesClient({ tables, restaurantSlug, restaurantName }:
       link.click();
     } catch (err) {
       console.error("[QR Poster Error]:", err);
-      toast({ title: "Error", variant: "destructive", description: "Could not generate QR poster." });
+      toast({ title: t(lang, "Error", "त्रुटि"), variant: "destructive", description: t(lang, "Could not generate QR poster.", "QR पोस्टर बनाउन सकिएन।") });
     } finally {
       setDownloadingId(null);
     }
@@ -286,11 +289,11 @@ export default function TablesClient({ tables, restaurantSlug, restaurantName }:
       {/* Add table */}
       <Card>
         <CardContent className="p-5">
-          <p className="text-sm font-medium text-gray-700 mb-3">Add New Table</p>
+          <p className="text-sm font-medium text-gray-700 mb-3">{t(lang, "Add New Table", "नयाँ टेबल थप्नुहोस्")}</p>
           <div className="flex gap-3 max-w-xs">
             <Input
               type="number"
-              placeholder="Table number"
+              placeholder={t(lang, "Table number", "टेबल नम्बर")}
               value={newTableNumber}
               onChange={(e) => setNewTableNumber(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && addTable()}
@@ -301,7 +304,7 @@ export default function TablesClient({ tables, restaurantSlug, restaurantName }:
               disabled={adding}
               className="bg-orange-500 hover:bg-orange-600 text-white shrink-0"
             >
-              {adding ? <Loader2 className="w-4 h-4 animate-spin" /> : <><Plus className="w-4 h-4" /> Add</>}
+              {adding ? <Loader2 className="w-4 h-4 animate-spin" /> : <><Plus className="w-4 h-4" /> {t(lang, "Add", "थप्नुहोस्")}</>}
             </Button>
           </div>
         </CardContent>
@@ -312,8 +315,8 @@ export default function TablesClient({ tables, restaurantSlug, restaurantName }:
         <Card className="border-dashed">
           <CardContent className="py-16 text-center text-gray-400">
             <QrCode className="w-12 h-12 mx-auto mb-3 opacity-30" />
-            <p className="font-medium text-gray-500">No tables yet</p>
-            <p className="text-sm mt-1">Add your first table above</p>
+            <p className="font-medium text-gray-500">{t(lang, "No tables yet", "अहिलेसम्म कुनै टेबल छैन")}</p>
+            <p className="text-sm mt-1">{t(lang, "Add your first table above", "माथि आफ्नो पहिलो टेबल थप्नुहोस्")}</p>
           </CardContent>
         </Card>
       ) : (
@@ -328,15 +331,15 @@ export default function TablesClient({ tables, restaurantSlug, restaurantName }:
                 <CardContent className="p-5 space-y-4">
                   <div className="flex items-start justify-between">
                     <div>
-                      <p className="font-bold text-gray-900 text-xl">Table {table.tableNumber}</p>
+                      <p className="font-bold text-gray-900 text-xl">{t(lang, "Table", "टेबल")} {table.tableNumber}</p>
                       <Badge variant={table.isActive ? "success" : "secondary"} className="mt-1">
-                        {table.isActive ? "Active" : "Inactive"}
+                        {table.isActive ? t(lang, "Active", "सक्रिय") : t(lang, "Inactive", "निष्क्रिय")}
                       </Badge>
                     </div>
                     {hasActiveSession && (
                       <div className="flex items-center gap-1 text-xs text-green-600 bg-green-50 rounded-full px-2 py-1">
                         <CheckCircle className="w-3 h-3" />
-                        Occupied
+                        {t(lang, "Occupied", "भरिएको")}
                       </div>
                     )}
                   </div>
@@ -354,7 +357,7 @@ export default function TablesClient({ tables, restaurantSlug, restaurantName }:
                       bgColor="#FFFFFF"
                       fgColor="#000000"
                       marginSize={2}
-                      title={`Scan to open menu — Table ${table.tableNumber}`}
+                      title={`${t(lang, "Scan to open menu — Table", "स्क्यान गर्नुहोस् — टेबल")} ${table.tableNumber}`}
                     />
                   </div>
 
@@ -364,7 +367,7 @@ export default function TablesClient({ tables, restaurantSlug, restaurantName }:
                   </p>
 
                   {/* Actions */}
-                  {activeSession && <div className="text-xs rounded-lg bg-gray-50 p-2 space-y-1"><p className="font-medium">Final bill charges</p><label className="flex gap-2"><input type="checkbox" checked={activeSession.applyTax} onChange={(e) => toggleCharge(table.id, "applyTax", e.target.checked)} /> VAT / tax</label><label className="flex gap-2"><input type="checkbox" checked={activeSession.applyServiceCharge} onChange={(e) => toggleCharge(table.id, "applyServiceCharge", e.target.checked)} /> Service charge</label></div>}
+                  {activeSession && <div className="text-xs rounded-lg bg-gray-50 p-2 space-y-1"><p className="font-medium">{t(lang, "Final bill charges", "अन्तिम बिल शुल्कहरू")}</p><label className="flex gap-2"><input type="checkbox" checked={activeSession.applyTax} onChange={(e) => toggleCharge(table.id, "applyTax", e.target.checked)} /> {t(lang, "VAT / tax", "भ्याट / कर")}</label><label className="flex gap-2"><input type="checkbox" checked={activeSession.applyServiceCharge} onChange={(e) => toggleCharge(table.id, "applyServiceCharge", e.target.checked)} /> {t(lang, "Service charge", "सेवा शुल्क")}</label></div>}
                   <div className="grid grid-cols-2 gap-2">
                     <Button
                       size="sm"
@@ -377,7 +380,7 @@ export default function TablesClient({ tables, restaurantSlug, restaurantName }:
                       ) : (
                         <Download className="w-3 h-3 mr-1" />
                       )}
-                      Download
+                      {t(lang, "Download", "डाउनलोड")}
                     </Button>
                     {hasActiveSession && (
                       <Button
@@ -387,7 +390,7 @@ export default function TablesClient({ tables, restaurantSlug, restaurantName }:
                         onClick={() => closeSession(table.id)}
                       >
                         <RefreshCw className="w-3 h-3 mr-1" />
-                        New Session
+                        {t(lang, "New Session", "नयाँ सेसन")}
                       </Button>
                     )}
                     <Button
@@ -400,7 +403,7 @@ export default function TablesClient({ tables, restaurantSlug, restaurantName }:
                       {deletingId === table.id ? (
                         <Loader2 className="w-3 h-3 animate-spin" />
                       ) : (
-                        <><Trash2 className="w-3 h-3 mr-1" />Delete</>
+                        <><Trash2 className="w-3 h-3 mr-1" />{t(lang, "Delete", "मेट्नुहोस्")}</>
                       )}
                     </Button>
                   </div>

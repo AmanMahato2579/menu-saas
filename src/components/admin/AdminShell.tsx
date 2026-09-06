@@ -10,10 +10,11 @@ import PushNotificationPrompt from "./PushNotificationPrompt";
 interface AdminShellProps {
   user: AdminUser;
   initialUnreadCount: number;
+  language?: string;
   children: React.ReactNode;
 }
 
-export default function AdminShell({ user, initialUnreadCount, children }: AdminShellProps) {
+export default function AdminShell({ user, initialUnreadCount, language = "EN", children }: AdminShellProps) {
   const pathname = usePathname();
   const [openedForPath, setOpenedForPath] = useState<string | null>(null);
   const sidebarOpen = openedForPath === pathname;
@@ -43,16 +44,17 @@ export default function AdminShell({ user, initialUnreadCount, children }: Admin
         />
       )}
 
-      <AdminSidebar user={user} open={sidebarOpen} onNavigate={closeSidebar} />
+      <AdminSidebar user={user} open={sidebarOpen} onNavigate={closeSidebar} language={language} />
 
       <div className="flex-1 flex flex-col overflow-hidden min-w-0">
         <AdminHeader
           user={user}
           initialUnreadCount={initialUnreadCount}
           onMenuClick={toggleSidebar}
+          language={language}
         />
         <main className="flex-1 overflow-y-auto p-4 md:p-6">
-          <PushNotificationPrompt />
+          <PushNotificationPrompt language={language} />
           {children}
         </main>
       </div>

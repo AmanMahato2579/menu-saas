@@ -33,6 +33,7 @@ model Restaurant {
   phone                  String?
   currency               String         @default("Rs.")
   openingHours           String?
+  language               String         @default("EN")
   taxRate                Decimal        @default(0) @db.Decimal(5, 2)
   isTaxEnabled           Boolean        @default(false)
   serviceChargeRate      Decimal        @default(0) @db.Decimal(5, 2)

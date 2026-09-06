@@ -2,36 +2,32 @@
 
 import { useState, useTransition, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { formatCurrency, formatDate, getOrderStatusColor, getOrderStatusLabel } from "@/lib/utils";
+import { formatCurrency, formatDate, getOrderStatusColor } from "@/lib/utils";
+import { t, orderStatusLabel, nextActionLabel } from "@/lib/i18n";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/components/ui/toast";
 import { Loader2, FlameKindling, X, Users, CheckCircle2, Receipt, CreditCard, ChevronRight } from "lucide-react";
 
-const STATUS_TABS = [
-  { label: "Running Orders", value: undefined },
-  { label: "All Orders", value: "ALL" },
-  { label: "Pending", value: "PENDING" },
-  { label: "Accepted", value: "ACCEPTED" },
-  { label: "Preparing", value: "PREPARING" },
-  { label: "Ready", value: "READY" },
-  { label: "Completed", value: "COMPLETED" },
-  { label: "Rejected", value: "REJECTED" },
-];
+function buildStatusTabs(lang: string | undefined) {
+  return [
+    { label: t(lang, "Running Orders", "चालू अर्डरहरू"), value: undefined },
+    { label: t(lang, "All Orders", "सबै अर्डरहरू"), value: "ALL" },
+    { label: orderStatusLabel("PENDING", lang), value: "PENDING" },
+    { label: orderStatusLabel("ACCEPTED", lang), value: "ACCEPTED" },
+    { label: orderStatusLabel("PREPARING", lang), value: "PREPARING" },
+    { label: orderStatusLabel("READY", lang), value: "READY" },
+    { label: orderStatusLabel("COMPLETED", lang), value: "COMPLETED" },
+    { label: orderStatusLabel("REJECTED", lang), value: "REJECTED" },
+  ];
+}
 
 const NEXT_STATUS: Record<string, string> = {
   PENDING: "ACCEPTED",
   ACCEPTED: "PREPARING",
   PREPARING: "READY",
   READY: "COMPLETED",
-};
-
-const NEXT_STATUS_LABEL: Record<string, string> = {
-  PENDING: "Accept",
-  ACCEPTED: "Mark Preparing",
-  PREPARING: "Mark Ready",
-  READY: "Mark Completed ✓",
 };
 
 interface OrderItem {
@@ -72,6 +68,7 @@ interface Restaurant {
   taxRate: number;
   isServiceChargeEnabled: boolean;
   serviceChargeRate: number;
+  language?: string;
 }
 
 interface Props {
@@ -99,6 +96,7 @@ interface TableSessionSummary {
     quantity: number;
     subtotal: number;
   }[];
+  lastOrderedAt: number;
   subtotal: number;
   taxAmount: number;
   serviceChargeAmount: number;
@@ -110,6 +108,9 @@ export default function OrdersClient({ orders, currentStatus, restaurant }: Prop
   const { toast } = useToast();
   const [updatingId, setUpdatingId] = useState<string | null>(null);
   const [, startTransition] = useTransition();
+
+  const lang = restaurant?.language ?? "EN";
+  const STATUS_TABS = buildStatusTabs(lang);
 
   const [activeCheckoutSession, setActiveCheckoutSession] = useState<TableSessionSummary | null>(null);
   const [endingSession, setEndingSession] = useState(false);
@@ -138,20 +139,20 @@ export default function OrdersClient({ orders, currentStatus, restaurant }: Prop
       });
       if (!res.ok) throw new Error("Failed to update");
       toast({
-        title: newStatus === "COMPLETED" ? "Order Completed! ✓" : "Order Updated",
+        title: newStatus === "COMPLETED" ? t(lang, "Order Completed! ✓", "अर्डर सम्पन्न! ✓") : t(lang, "Order Updated", "अर्डर अपडेट भयो"),
         variant: "success",
-        description: `Order status set to ${getOrderStatusLabel(newStatus)}`,
+        description: `${t(lang, "Order status set to", "अर्डर स्थिति")} ${orderStatusLabel(newStatus, lang)}`,
       });
       startTransition(() => router.refresh());
     } catch {
-      toast({ title: "Error", variant: "destructive", description: "Could not update order status." });
+      toast({ title: t(lang, "Error", "त्रुटि"), variant: "destructive", description: t(lang, "Could not update order status.", "अर्डर स्थिति अपडेट गर्न सकिएन।") });
     } finally {
       setUpdatingId(null);
     }
   };
 
   const rejectOrder = async (orderId: string) => {
-    if (!window.confirm("Reject this order?")) return;
+    if (!window.confirm(t(lang, "Reject this order?", "यो अर्डर अस्वीकार गर्ने हो?"))) return;
     setUpdatingId(orderId);
     try {
       await fetch(`/api/admin/orders/${orderId}/status`, {
@@ -159,10 +160,10 @@ export default function OrdersClient({ orders, currentStatus, restaurant }: Prop
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status: "REJECTED" }),
       });
-      toast({ title: "Order rejected", variant: "destructive" });
+      toast({ title: t(lang, "Order rejected", "अर्डर अस्वीकृत भयो"), variant: "destructive" });
       startTransition(() => router.refresh());
     } catch {
-      toast({ title: "Error", variant: "destructive", description: "Could not reject order." });
+      toast({ title: t(lang, "Error", "त्रुटि"), variant: "destructive", description: t(lang, "Could not reject order.", "अर्डर अस्वीकार गर्न सकिएन।") });
     } finally {
       setUpdatingId(null);
     }
@@ -175,17 +176,17 @@ export default function OrdersClient({ orders, currentStatus, restaurant }: Prop
       const res = await fetch(`/api/admin/sessions/${sessionId}/close`, { method: "POST" });
       if (res.ok) {
         toast({
-          title: `Table ${tableNumber} Checked Out! 🎉`,
+          title: `${t(lang, "Table", "टेबल")} ${tableNumber} ${t(lang, "Checked Out! 🎉", "चेकआउट भयो! 🎉")}`,
           variant: "success",
-          description: `Payment settled. Table ${tableNumber} is now free for new guests.`,
+          description: t(lang, `Payment settled. Table ${tableNumber} is now free for new guests.`, `भुक्तानी मिल्यो। टेबल ${tableNumber} अब नयाँ पाहुनाका लागि खाली छ।`),
         });
         setActiveCheckoutSession(null);
         startTransition(() => router.refresh());
       } else {
-        toast({ title: "Error", variant: "destructive", description: "Could not checkout session." });
+        toast({ title: t(lang, "Error", "त्रुटि"), variant: "destructive", description: t(lang, "Could not checkout session.", "सेसन चेकआउट गर्न सकिएन।") });
       }
     } catch {
-      toast({ title: "Network error", variant: "destructive" });
+      toast({ title: t(lang, "Network error", "नेटवर्क त्रुटि"), variant: "destructive" });
     } finally {
       setEndingSession(false);
     }
@@ -233,7 +234,16 @@ export default function OrdersClient({ orders, currentStatus, restaurant }: Prop
         (o) => o.status === "PENDING" || o.status === "ACCEPTED" || o.status === "PREPARING" || o.status === "READY"
       );
 
-      const isReadyForCheckout = sessionOrders.length > 0 && !hasRunningOrders;
+      // A session is only "ready for checkout" while it is still open. Closed
+      // (already-checked-out) sessions must never be counted as ready — this was
+      // the bug that showed a "Tables Ready for Checkout" badge with no tables
+      // actually available to check out.
+      const isReadyForCheckout = !isClosed && sessionOrders.length > 0 && !hasRunningOrders;
+
+      const lastOrderedAt = sessionOrders.reduce(
+        (latest, o) => (new Date(o.createdAt).getTime() > latest ? new Date(o.createdAt).getTime() : latest),
+        0
+      );
 
       // Consolidate all items across orders in this session
       const itemMap = new Map<string, { name: string; variantName?: string | null; quantity: number; subtotal: number }>();
@@ -279,6 +289,7 @@ export default function OrdersClient({ orders, currentStatus, restaurant }: Prop
         completedOrdersCount: completedOrders.length,
         isReadyForCheckout,
         hasRunningOrders,
+        lastOrderedAt,
         items: Array.from(itemMap.values()),
         subtotal,
         taxAmount,
@@ -288,16 +299,21 @@ export default function OrdersClient({ orders, currentStatus, restaurant }: Prop
     }
   );
 
-  // Sort sessions: Ready for checkout first, then by table number
+  const isAllView = currentStatus === "ALL";
+
+  // Sort sessions for a stable, useful order:
+  //  - "All Session Bills (Last 24h)" lists by most-recent activity (last order).
+  //  - Running view puts tables ready for checkout on top, then most-recent.
   sessionSummaries.sort((a, b) => {
+    if (isAllView) {
+      return b.lastOrderedAt - a.lastOrderedAt;
+    }
     if (a.isReadyForCheckout && !b.isReadyForCheckout) return -1;
     if (!a.isReadyForCheckout && b.isReadyForCheckout) return 1;
-    return a.tableNumber - b.tableNumber;
+    return b.lastOrderedAt - a.lastOrderedAt;
   });
 
   const readyForCheckoutCount = sessionSummaries.filter((s) => s.isReadyForCheckout).length;
-
-  const isAllView = currentStatus === "ALL";
 
   return (
     <div className="space-y-6">
@@ -334,18 +350,18 @@ export default function OrdersClient({ orders, currentStatus, restaurant }: Prop
                 </div>
                 <div>
                   <CardTitle className="text-lg font-bold text-gray-900">
-                    {isAllView ? "All Session Bills (Last 24h)" : "Table Session Checkout Box"}
+                    {isAllView ? t(lang, "All Session Bills (Last 24h)", "सबै सेसन बिलहरू (पछिल्लो २४ घण्टा)") : t(lang, "Table Session Checkout Box", "टेबल सेसन चेकआउट बक्स")}
                   </CardTitle>
                   <p className="text-xs text-gray-600">
                     {isAllView
-                      ? "Every session's full bill for the last 24 hours — the same figures shown in your analytics."
-                      : "All completed orders are grouped here into a single combined bill for 1-click checkout."}
+                      ? t(lang, "Every session's full bill for the last 24 hours — the same figures shown in your analytics.", "पछिल्लो २४ घण्टाका हरेक सेसनको पूरा बिल — तपाईंको एनालिटिक्समा देखाइएकै संख्याहरू।")
+                      : t(lang, "All completed orders are grouped here into a single combined bill for 1-click checkout.", "सबै सम्पन्न अर्डरहरू यहाँ एक-क्लिक चेकआउटका लागि एउटै संयुक्त बिलमा समूहबद्ध गरिएका छन्।")}
                   </p>
                 </div>
               </div>
               {readyForCheckoutCount > 0 && (
                 <Badge className="bg-green-600 text-white font-bold text-xs px-3 py-1 animate-pulse">
-                  {readyForCheckoutCount} Table{readyForCheckoutCount > 1 ? "s" : ""} Ready for Checkout
+                  {t(lang, `${readyForCheckoutCount} Table${readyForCheckoutCount > 1 ? "s" : ""} Ready for Checkout`, `${readyForCheckoutCount} ${readyForCheckoutCount > 1 ? "टेबलहरू" : "टेबल"} चेकआउटका लागि तयार`)}
                 </Badge>
               )}
             </div>
@@ -365,7 +381,7 @@ export default function OrdersClient({ orders, currentStatus, restaurant }: Prop
                     <div className="flex items-center justify-between mb-2">
                       <div className="flex items-center gap-2">
                         <span className="text-lg font-extrabold text-gray-900">
-                          Table {session.tableNumber}
+                          {t(lang, "Table", "टेबल")} {session.tableNumber}
                         </span>
                         {session.customerName && (
                           <span className="text-xs text-orange-600 bg-orange-100 px-2 py-0.5 rounded-full font-medium flex items-center gap-1">
@@ -375,25 +391,25 @@ export default function OrdersClient({ orders, currentStatus, restaurant }: Prop
                       </div>
                       {session.isClosed ? (
                         <span className="text-xs font-bold text-gray-500 bg-gray-100 px-2.5 py-1 rounded-full flex items-center gap-1">
-                          <Receipt className="w-3.5 h-3.5 text-gray-400" /> Closed
+                          <Receipt className="w-3.5 h-3.5 text-gray-400" /> {t(lang, "Closed", "बन्द")}
                         </span>
                       ) : session.isReadyForCheckout ? (
                         <span className="text-xs font-bold text-green-700 bg-green-100 px-2.5 py-1 rounded-full flex items-center gap-1">
-                          <CheckCircle2 className="w-3.5 h-3.5 text-green-600" /> Ready
+                          <CheckCircle2 className="w-3.5 h-3.5 text-green-600" /> {t(lang, "Ready", "तयार")}
                         </span>
                       ) : (
                         <span className="text-xs text-amber-700 bg-amber-100 px-2.5 py-1 rounded-full font-medium">
-                          In Progress ({session.completedOrdersCount}/{session.totalOrdersCount})
+                          {t(lang, "In Progress", "प्रगतिमा")} ({session.completedOrdersCount}/{session.totalOrdersCount})
                         </span>
                       )}
                     </div>
 
                     <div className="text-xs text-gray-500 space-y-1 mb-3 bg-gray-50 p-2.5 rounded-xl border">
                       <p className="font-semibold text-gray-700">
-                        {session.totalOrdersCount} Order{session.totalOrdersCount !== 1 ? "s" : ""} · {session.items.reduce((s, i) => s + i.quantity, 0)} Item{session.items.reduce((s, i) => s + i.quantity, 0) !== 1 ? "s" : ""} ({session.items.length} dishes)
+                        {session.totalOrdersCount} {t(lang, session.totalOrdersCount !== 1 ? "Orders" : "Order", session.totalOrdersCount !== 1 ? "अर्डरहरू" : "अर्डर")} · {session.items.reduce((s, i) => s + i.quantity, 0)} {t(lang, session.items.reduce((s, i) => s + i.quantity, 0) !== 1 ? "Items" : "Item", session.items.reduce((s, i) => s + i.quantity, 0) !== 1 ? "वस्तुहरू" : "वस्तु")} ({session.items.length} {t(lang, "dishes", "परिकार")})
                       </p>
                       <p className="font-extrabold text-sm text-orange-600">
-                        Total Bill: {formatCurrency(session.grandTotal, restaurant?.currency)}
+                        {t(lang, "Total Bill:", "कुल बिल:")} {formatCurrency(session.grandTotal, restaurant?.currency)}
                       </p>
                     </div>
                   </div>
@@ -404,7 +420,7 @@ export default function OrdersClient({ orders, currentStatus, restaurant }: Prop
                       onClick={() => setActiveCheckoutSession(session)}
                       className="w-full border-gray-300 text-gray-700 hover:bg-gray-50 text-xs font-semibold h-9 rounded-xl"
                     >
-                      View Session Bill
+                      {t(lang, "View Session Bill", "सेसन बिल हेर्नुहोस्")}
                     </Button>
                   ) : session.isReadyForCheckout ? (
                     <Button
@@ -412,7 +428,7 @@ export default function OrdersClient({ orders, currentStatus, restaurant }: Prop
                       className="w-full bg-green-600 hover:bg-green-700 text-white font-bold h-11 text-sm rounded-xl shadow-md flex items-center justify-center gap-2"
                     >
                       <Receipt className="w-4 h-4" />
-                      Checkout Table {session.tableNumber}
+                      {t(lang, "Checkout Table", "टेबल चेकआउट")} {session.tableNumber}
                       <ChevronRight className="w-4 h-4" />
                     </Button>
                   ) : (
@@ -421,7 +437,7 @@ export default function OrdersClient({ orders, currentStatus, restaurant }: Prop
                       onClick={() => setActiveCheckoutSession(session)}
                       className="w-full border-gray-300 text-gray-700 hover:bg-gray-50 text-xs font-semibold h-9 rounded-xl"
                     >
-                      View Consolidated Bill
+                      {t(lang, "View Consolidated Bill", "संयुक्त बिल हेर्नुहोस्")}
                     </Button>
                   )}
                 </div>
@@ -431,18 +447,29 @@ export default function OrdersClient({ orders, currentStatus, restaurant }: Prop
         </Card>
       )}
 
+      {isAllView && sessionSummaries.length === 0 && (
+        <div className="text-center py-16 bg-white rounded-2xl border border-dashed border-gray-300">
+          <ClipboardListEmpty />
+          <p className="text-base font-semibold text-gray-600 mt-4">
+            {t(lang, "No orders in the last 24 hours", "पछिल्लो २४ घण्टामा कुनै अर्डर छैन")}
+          </p>
+          <p className="text-xs text-gray-400 mt-1">
+            {t(lang, "New orders and their session bills will appear here.", "नयाँ अर्डर र तिनका सेसन बिलहरू यहाँ देखिनेछन्।")}
+          </p>
+        </div>
+      )}
+
       {/* ── RUNNING KITCHEN ORDERS GRID ── */}
+      {!isAllView && (
       <div>
         <div className="flex items-center justify-between mb-3">
           <h2 className="text-lg font-bold text-gray-900">
-            {currentStatus === "ALL"
-              ? "All Orders (Last 24h)"
-              : currentStatus
-                ? `${getOrderStatusLabel(currentStatus)} Orders`
-                : "Running Kitchen Orders"}
+            {currentStatus
+              ? `${orderStatusLabel(currentStatus, lang)} ${t(lang, "Orders", "अर्डरहरू")}`
+              : t(lang, "Running Kitchen Orders", "चालू किचन अर्डरहरू")}
           </h2>
           <span className="text-xs text-gray-500 font-medium">
-            {displayedOrders.length} order{displayedOrders.length !== 1 ? "s" : ""}
+            {displayedOrders.length} {t(lang, displayedOrders.length !== 1 ? "orders" : "order", displayedOrders.length !== 1 ? "अर्डरहरू" : "अर्डर")}
           </span>
         </div>
 
@@ -450,16 +477,12 @@ export default function OrdersClient({ orders, currentStatus, restaurant }: Prop
           <div className="text-center py-16 bg-white rounded-2xl border border-dashed border-gray-300">
             <ClipboardListEmpty />
             <p className="text-base font-semibold text-gray-600 mt-4">
-              {currentStatus === "ALL"
-                ? "No orders in the last 24 hours"
-                : "No active running orders"}
+              {t(lang, "No active running orders", "कुनै चालू अर्डर छैन")}
             </p>
             <p className="text-xs text-gray-400 mt-1">
-              {currentStatus === "ALL"
-                ? "New orders and their session bills will appear here."
-                : currentStatus
-                  ? `No ${getOrderStatusLabel(currentStatus)} orders found.`
-                  : "All orders are served or checked out."}
+              {currentStatus
+                ? t(lang, `No ${orderStatusLabel(currentStatus, lang)} orders found.`, `${orderStatusLabel(currentStatus, lang)} अर्डरहरू भेटिएनन्।`)
+                : t(lang, "All orders are served or checked out.", "सबै अर्डरहरू सेवा गरिसकिएका वा चेकआउट भइसकेका छन्।")}
             </p>
           </div>
         ) : (
@@ -486,7 +509,7 @@ export default function OrdersClient({ orders, currentStatus, restaurant }: Prop
                         <div className="flex items-center gap-2">
                           <p className="font-extrabold text-gray-900 text-xl">Order #{order.orderNumber}</p>
                           <span className="text-sm font-bold text-orange-600 bg-orange-50 px-2 py-0.5 rounded-lg border border-orange-200">
-                            Table {tableNumber ?? "—"}
+                            {t(lang, "Table", "टेबल")} {tableNumber ?? "—"}
                           </span>
                         </div>
                         <p className="text-xs text-gray-400 mt-1">
@@ -494,12 +517,12 @@ export default function OrdersClient({ orders, currentStatus, restaurant }: Prop
                         </p>
                         {customerName && (
                           <p className="text-xs text-orange-600 flex items-center gap-1 mt-1 font-medium">
-                            <Users className="w-3 h-3" /> Guest: {customerName}
+                            <Users className="w-3 h-3" /> {t(lang, "Guest:", "पाहुना:")} {customerName}
                           </p>
                         )}
                       </div>
                       <Badge className={`${getOrderStatusColor(order.status)} border text-xs px-2.5 py-1`}>
-                        {getOrderStatusLabel(order.status)}
+                        {orderStatusLabel(order.status, lang)}
                       </Badge>
                     </div>
                   </CardHeader>
@@ -517,7 +540,7 @@ export default function OrdersClient({ orders, currentStatus, restaurant }: Prop
                               <span className="text-orange-600 font-bold ml-1">× {item.quantity}</span>
                             </span>
                             {item.isSpicy && (
-                              <span className="ml-2 text-xs text-red-600 font-bold bg-red-50 px-1.5 py-0.5 rounded">🌶 Spicy</span>
+                              <span className="ml-2 text-xs text-red-600 font-bold bg-red-50 px-1.5 py-0.5 rounded">🌶 {t(lang, "Spicy", "पिरो")}</span>
                             )}
                             {item.note && (
                               <p className="text-xs text-gray-500 italic mt-0.5 bg-amber-50 p-1 rounded border border-amber-100">
@@ -534,7 +557,7 @@ export default function OrdersClient({ orders, currentStatus, restaurant }: Prop
 
                     <div className="flex items-center justify-between pt-1">
                       <span className="font-bold text-gray-900 text-base">
-                        Order Total: {formatCurrency(order.total, restaurant?.currency)}
+                        {t(lang, "Order Total:", "कुल अर्डर:")} {formatCurrency(order.total, restaurant?.currency)}
                       </span>
                     </div>
 
@@ -553,7 +576,7 @@ export default function OrdersClient({ orders, currentStatus, restaurant }: Prop
                           {updatingId === order.id ? (
                             <Loader2 className="w-5 h-5 animate-spin mx-auto" />
                           ) : (
-                            NEXT_STATUS_LABEL[order.status]
+                            nextActionLabel(order.status, lang)
                           )}
                         </Button>
                         {order.status === "PENDING" && (
@@ -563,7 +586,7 @@ export default function OrdersClient({ orders, currentStatus, restaurant }: Prop
                             disabled={updatingId === order.id}
                             onClick={() => rejectOrder(order.id)}
                           >
-                            Reject
+                            {t(lang, "Reject", "अस्वीकार गर्नुहोस्")}
                           </Button>
                         )}
                       </div>
@@ -575,6 +598,7 @@ export default function OrdersClient({ orders, currentStatus, restaurant }: Prop
           </div>
         )}
       </div>
+      )}
 
       {/* ── BIG CHECKOUT & BILL POPUP MODAL (Requirements 3 & 4 — NO TYPING!) ── */}
       {activeCheckoutSession && (
@@ -594,12 +618,12 @@ export default function OrdersClient({ orders, currentStatus, restaurant }: Prop
                 </div>
                 <div>
                   <h3 className="text-2xl font-black">
-                    Table {activeCheckoutSession.tableNumber} Checkout
+                    {t(lang, "Table", "टेबल")} {activeCheckoutSession.tableNumber} {t(lang, "Checkout", "चेकआउट")}
                   </h3>
                   <p className="text-xs text-orange-100 mt-0.5">
                     {activeCheckoutSession.customerName
-                      ? `Guest: ${activeCheckoutSession.customerName}`
-                      : "Dine-in Customer"} · {activeCheckoutSession.totalOrdersCount} Order{activeCheckoutSession.totalOrdersCount > 1 ? "s" : ""} Total{activeCheckoutSession.isClosed ? " · Session Closed" : ""}
+                      ? `${t(lang, "Guest:", "पाहुना:")} ${activeCheckoutSession.customerName}`
+                      : t(lang, "Dine-in Customer", "डाइन-इन पाहुना")} · {activeCheckoutSession.totalOrdersCount} {t(lang, activeCheckoutSession.totalOrdersCount > 1 ? "Orders" : "Order", activeCheckoutSession.totalOrdersCount > 1 ? "अर्डरहरू" : "अर्डर")} {t(lang, "Total", "कुल")}{activeCheckoutSession.isClosed ? ` · ${t(lang, "Session Closed", "सेसन बन्द")}` : ""}
                   </p>
                 </div>
               </div>
@@ -609,8 +633,8 @@ export default function OrdersClient({ orders, currentStatus, restaurant }: Prop
             <div className="p-6 overflow-y-auto space-y-4 flex-1">
               <div className="bg-gray-50 rounded-2xl p-4 border space-y-3">
                 <div className="flex items-center justify-between border-b pb-2">
-                  <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">Item & Quantity</span>
-                  <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">Subtotal</span>
+                  <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">{t(lang, "Item & Quantity", "वस्तु र मात्रा")}</span>
+                  <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">{t(lang, "Subtotal", "उपयोग")}</span>
                 </div>
                 {activeCheckoutSession.items.map((item, idx) => (
                   <div key={idx} className="flex justify-between items-start text-sm">
@@ -618,7 +642,7 @@ export default function OrdersClient({ orders, currentStatus, restaurant }: Prop
                       <p className="font-bold text-gray-900">
                         {item.name} {item.variantName && <span className="text-gray-500 font-normal">({item.variantName})</span>}
                       </p>
-                      <p className="text-xs text-gray-500 font-medium">Quantity: × {item.quantity}</p>
+                      <p className="text-xs text-gray-500 font-medium">{t(lang, "Quantity:", "मात्रा:")} × {item.quantity}</p>
                     </div>
                     <span className="font-bold text-gray-800">
                       {formatCurrency(item.subtotal, restaurant?.currency)}
@@ -630,23 +654,23 @@ export default function OrdersClient({ orders, currentStatus, restaurant }: Prop
               {/* Bill Totals Summary Box */}
               <div className="bg-orange-50/60 rounded-2xl p-4 border border-orange-200 space-y-2">
                 <div className="flex justify-between text-sm text-gray-600">
-                  <span>Subtotal</span>
+                  <span>{t(lang, "Subtotal", "उपयोग")}</span>
                   <span className="font-semibold">{formatCurrency(activeCheckoutSession.subtotal, restaurant?.currency)}</span>
                 </div>
                 {activeCheckoutSession.taxAmount > 0 && (
                   <div className="flex justify-between text-sm text-gray-600">
-                    <span>Tax / VAT ({restaurant?.taxRate}%)</span>
+                    <span>{t(lang, "Tax / VAT", "कर / भ्याट")} ({restaurant?.taxRate}%)</span>
                     <span className="font-semibold">{formatCurrency(activeCheckoutSession.taxAmount, restaurant?.currency)}</span>
                   </div>
                 )}
                 {activeCheckoutSession.serviceChargeAmount > 0 && (
                   <div className="flex justify-between text-sm text-gray-600">
-                    <span>Service Charge ({restaurant?.serviceChargeRate}%)</span>
+                    <span>{t(lang, "Service Charge", "सेवा शुल्क")} ({restaurant?.serviceChargeRate}%)</span>
                     <span className="font-semibold">{formatCurrency(activeCheckoutSession.serviceChargeAmount, restaurant?.currency)}</span>
                   </div>
                 )}
                 <div className="border-t border-orange-200 pt-2 flex justify-between items-center">
-                  <span className="text-lg font-black text-gray-900">Grand Total</span>
+                  <span className="text-lg font-black text-gray-900">{t(lang, "Grand Total", "जम्मा")}</span>
                   <span className="text-2xl font-black text-orange-600">
                     {formatCurrency(activeCheckoutSession.grandTotal, restaurant?.currency)}
                   </span>
@@ -657,7 +681,7 @@ export default function OrdersClient({ orders, currentStatus, restaurant }: Prop
               {!activeCheckoutSession.isReadyForCheckout && (
                 <div className="bg-amber-50 border border-amber-300 rounded-xl p-3 text-center">
                   <p className="text-xs text-amber-800 font-bold">
-                    ⚠️ Note: {activeCheckoutSession.totalOrdersCount - activeCheckoutSession.completedOrdersCount} order(s) for this table are still being prepared/ready. Please complete all kitchen orders before final checkout.
+                    ⚠️ {t(lang, "Note:", "नोट:")} {activeCheckoutSession.totalOrdersCount - activeCheckoutSession.completedOrdersCount} {t(lang, "order(s) for this table are still being prepared/ready. Please complete all kitchen orders before final checkout.", "यस टेबलका अर्डर(हरू) अझै तयारीमा/तयार छन्। अन्तिम चेकआउट गर्नुअघि सबै किचन अर्डर सम्पन्न गर्नुहोस्।")}
                   </p>
                 </div>
               )}
@@ -679,9 +703,9 @@ export default function OrdersClient({ orders, currentStatus, restaurant }: Prop
                 {endingSession ? (
                   <Loader2 className="w-6 h-6 animate-spin" />
                 ) : (
-                  <>
+                  <> 
                     <CheckCircle2 className="w-6 h-6" />
-                    Confirm Payment & Checkout Table {activeCheckoutSession.tableNumber}
+                    {t(lang, "Confirm Payment & Checkout Table", "भुक्तानी पुष्टि गरेर टेबल चेकआउट गर्नुहोस्")} {activeCheckoutSession.tableNumber}
                   </>
                 )}
               </Button>
@@ -692,7 +716,7 @@ export default function OrdersClient({ orders, currentStatus, restaurant }: Prop
                 disabled={endingSession}
                 className="h-14 px-6 rounded-2xl font-bold border-gray-300"
               >
-                Cancel
+                {t(lang, "Cancel", "रद्द गर्नुहोस्")}
               </Button>
             </div>
           </div>

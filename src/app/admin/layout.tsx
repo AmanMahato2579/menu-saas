@@ -11,16 +11,25 @@ export default async function AdminLayout({
   const user = await requireAuth();
 
   let unreadCount = 0;
+  let language = "EN";
   if (user.restaurantId) {
-    unreadCount = await prisma.notification.count({
-      where: { restaurantId: user.restaurantId, read: false },
-    });
+    const [notifCount, restaurant] = await Promise.all([
+      prisma.notification.count({
+        where: { restaurantId: user.restaurantId, read: false },
+      }),
+      prisma.restaurant.findUnique({
+        where: { id: user.restaurantId },
+        select: { language: true },
+      }),
+    ]);
+    unreadCount = notifCount;
+    language = restaurant?.language ?? "EN";
   }
 
   return (
     <>
       <AuthStateWatcher />
-      <AdminShell user={user} initialUnreadCount={unreadCount}>
+      <AdminShell user={user} initialUnreadCount={unreadCount} language={language}>
         {children}
       </AdminShell>
     </>

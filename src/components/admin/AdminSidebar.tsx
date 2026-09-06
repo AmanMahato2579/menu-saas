@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { signOut } from "next-auth/react";
 import { cn } from "@/lib/utils";
+import { t } from "@/lib/i18n";
 import type { AdminUser } from "@/types";
 import {
   LayoutDashboard,
@@ -23,19 +24,20 @@ interface AdminSidebarProps {
   open?: boolean;
   /** Called when a nav link is clicked, so the mobile drawer can close itself. */
   onNavigate?: () => void;
+  language?: string;
 }
 
-const navItems = [
-  { href: "/admin", label: "Dashboard", icon: LayoutDashboard, exact: true },
-  { href: "/admin/orders", label: "Orders", icon: ClipboardList },
-  { href: "/admin/menu", label: "Menu", icon: UtensilsCrossed },
-  { href: "/admin/tables", label: "Tables", icon: QrCode },
-  { href: "/admin/notifications", label: "Notifications", icon: Bell },
-  { href: "/admin/settings", label: "Settings", icon: Settings },
-];
-
-export default function AdminSidebar({ user, open = false, onNavigate }: AdminSidebarProps) {
+export default function AdminSidebar({ user, open = false, onNavigate, language = "EN" }: AdminSidebarProps) {
   const pathname = usePathname();
+
+  const navItems = [
+    { href: "/admin", label: t(language, "Dashboard", "ड्यासबोर्ड"), icon: LayoutDashboard, exact: true },
+    { href: "/admin/orders", label: t(language, "Orders", "अर्डरहरू"), icon: ClipboardList },
+    { href: "/admin/menu", label: t(language, "Menu", "मेनु"), icon: UtensilsCrossed },
+    { href: "/admin/tables", label: t(language, "Tables", "टेबलहरू"), icon: QrCode },
+    { href: "/admin/notifications", label: t(language, "Notifications", "सूचनाहरू"), icon: Bell },
+    { href: "/admin/settings", label: t(language, "Settings", "सेटिङहरू"), icon: Settings },
+  ];
 
   return (
     <aside
@@ -53,14 +55,14 @@ export default function AdminSidebar({ user, open = false, onNavigate }: AdminSi
           </div>
           <div>
             <div className="font-bold text-sm leading-tight">MenuQR</div>
-            <div className="text-xs text-white/50 leading-tight">Admin Panel</div>
+            <div className="text-xs text-white/50 leading-tight">{t(language, "Admin Panel", "एडमिन प्यानल")}</div>
           </div>
         </div>
       </div>
 
       {user.restaurantName && (
         <div className="px-6 py-3 border-b border-white/10">
-          <p className="text-xs text-white/40 uppercase tracking-wider mb-1">Restaurant</p>
+          <p className="text-xs text-white/40 uppercase tracking-wider mb-1">{t(language, "Restaurant", "रेस्टुरेन्ट")}</p>
           <p className="text-sm font-medium text-white/80 truncate">{user.restaurantName}</p>
         </div>
       )}
@@ -87,7 +89,7 @@ export default function AdminSidebar({ user, open = false, onNavigate }: AdminSi
         })}
       </nav>
 
-      <InstallPWA />
+      <InstallPWA language={language} />
 
       <div className="p-4 border-t border-white/10">
         <div className="px-3 py-2 mb-2">
@@ -99,7 +101,7 @@ export default function AdminSidebar({ user, open = false, onNavigate }: AdminSi
           className="flex items-center gap-3 px-3 py-2.5 w-full rounded-lg text-sm font-medium text-white/60 hover:text-white hover:bg-red-500/20 transition-all"
         >
           <LogOut className="w-5 h-5" />
-          Logout
+          {t(language, "Logout", "लगआउट")}
         </button>
       </div>
     </aside>

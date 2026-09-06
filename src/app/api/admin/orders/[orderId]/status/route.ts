@@ -1,6 +1,7 @@
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { createNotification } from "@/lib/notifications";
+import { orderRejectedMessage, orderRejectedTitle } from "@/lib/i18n";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import type { AdminUser } from "@/types";
@@ -56,13 +57,12 @@ export async function PATCH(
     const itemSummary = order.orderItems
       .map((i) => `${i.menuItemName} ×${i.quantity}`)
       .join(", ");
+    const lang = (await prisma.restaurant.findUnique({ where: { id: restaurantId }, select: { language: true } }))?.language ?? "EN";
     await createNotification({
       restaurantId,
       type: "ORDER_STATUS",
-      title: `Order #${order.orderNumber} rejected`,
-      message: tableNumber
-        ? `Table ${tableNumber} — ${itemSummary}. Please inform the customer why this order was rejected.`
-        : `${itemSummary}. Please inform the customer why this order was rejected.`,
+      title: orderRejectedTitle(lang, order.orderNumber),
+      message: orderRejectedMessage(lang, tableNumber, itemSummary),
       link: "/admin/orders",
     });
   }

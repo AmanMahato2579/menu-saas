@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import * as Popover from "@radix-ui/react-popover";
 import { Bell, BellRing, CheckCheck, Loader2, PackageCheck, Table2, RefreshCw, X } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { t } from "@/lib/i18n";
 
 interface Notification {
   id: string;
@@ -40,15 +41,15 @@ function playAttentionSound() {
   } catch { /* Browsers may block sound until the owner interacts with the page. */ }
 }
 
-function timeAgo(dateStr: string) {
+function timeAgo(dateStr: string, language?: string) {
   const diff = Date.now() - new Date(dateStr).getTime();
   const mins = Math.floor(diff / 60000);
-  if (mins < 1) return "just now";
-  if (mins < 60) return `${mins}m ago`;
+  if (mins < 1) return t(language, "just now", "भर्खरै");
+  if (mins < 60) return t(language, `${mins}m ago`, `${mins} मिनेट अघि`);
   const hours = Math.floor(mins / 60);
-  if (hours < 24) return `${hours}h ago`;
+  if (hours < 24) return t(language, `${hours}h ago`, `${hours} घण्टा अघि`);
   const days = Math.floor(hours / 24);
-  return `${days}d ago`;
+  return t(language, `${days}d ago`, `${days} दिन अघि`);
 }
 
 function NotificationIcon({ type }: { type: string }) {
@@ -73,7 +74,7 @@ function NotificationIcon({ type }: { type: string }) {
   );
 }
 
-export default function NotificationBell({ initialUnreadCount = 0 }: { initialUnreadCount?: number }) {
+export default function NotificationBell({ initialUnreadCount = 0, language = "EN" }: { initialUnreadCount?: number; language?: string }) {
   const router = useRouter();
   const [open, setOpen] = React.useState(false);
   const [notifications, setNotifications] = React.useState<Notification[]>([]);
@@ -196,9 +197,9 @@ export default function NotificationBell({ initialUnreadCount = 0 }: { initialUn
       >
         <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
           <div>
-            <p className="text-sm font-semibold text-gray-900">Notifications</p>
+            <p className="text-sm font-semibold text-gray-900">{t(language, "Notifications", "सूचनाहरू")}</p>
             <p className="text-xs text-gray-500">
-              {unreadCount > 0 ? `${unreadCount} unread` : "All caught up"}
+              {unreadCount > 0 ? `${unreadCount} ${t(language, "unread", "नपढिएका")}` : t(language, "All caught up", "सबै पढियो")}
             </p>
           </div>
           {unreadCount > 0 && (
@@ -212,7 +213,7 @@ export default function NotificationBell({ initialUnreadCount = 0 }: { initialUn
               ) : (
                 <CheckCheck className="w-3 h-3" />
               )}
-              Mark all read
+              {t(language, "Mark all read", "सबै पढियो चिन्ह लगाउनुहोस्")}
             </button>
           )}
         </div>
@@ -227,9 +228,9 @@ export default function NotificationBell({ initialUnreadCount = 0 }: { initialUn
               <div className="w-12 h-12 bg-gray-100 rounded-xl flex items-center justify-center mx-auto mb-3">
                 <Bell className="w-6 h-6 text-gray-300" />
               </div>
-              <p className="text-sm font-medium text-gray-600">No notifications yet</p>
+              <p className="text-sm font-medium text-gray-600">{t(language, "No notifications yet", "अहिलेसम्म कुनै सूचना छैन")}</p>
               <p className="text-xs text-gray-400 mt-1">
-                {"You'll"} be notified of new orders and table activity here.
+                {t(language, "You'll be notified of new orders and table activity here.", "यहाँ नयाँ अर्डर र टेबल गतिविधिको सूचना प्राप्त हुनेछ।")}
               </p>
             </div>
           ) : (
@@ -254,7 +255,7 @@ export default function NotificationBell({ initialUnreadCount = 0 }: { initialUn
                         )}
                       </div>
                       <p className="text-xs text-gray-600 line-clamp-2 mt-0.5">{n.message}</p>
-                      <p className="text-[11px] text-gray-400 mt-1">{timeAgo(n.createdAt)}</p>
+                      <p className="text-[11px] text-gray-400 mt-1">{timeAgo(n.createdAt, language)}</p>
                     </div>
                   </button>
                 </li>
@@ -269,7 +270,7 @@ export default function NotificationBell({ initialUnreadCount = 0 }: { initialUn
             onClick={() => setOpen(false)}
             className="block text-center py-2 rounded-lg text-sm font-medium text-orange-600 hover:bg-orange-50 transition-colors"
           >
-            View all notifications
+            {t(language, "View all notifications", "सबै सूचनाहरू हेर्नुहोस्")}
           </Link>
         </div>
       </Popover.Content>
@@ -278,12 +279,12 @@ export default function NotificationBell({ initialUnreadCount = 0 }: { initialUn
       <div role="alertdialog" aria-modal="true" className="fixed inset-0 z-[100] flex items-center justify-center bg-gray-950/80 p-4 backdrop-blur-sm">
         <div className="w-full max-w-lg rounded-3xl border-4 border-orange-400 bg-white p-7 text-center shadow-2xl animate-in fade-in zoom-in-95">
           <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-orange-100 text-orange-600"><BellRing className="h-9 w-9 animate-pulse" /></div>
-          <p className="text-xs font-bold uppercase tracking-[0.18em] text-orange-600">Immediate attention required</p>
+          <p className="text-xs font-bold uppercase tracking-[0.18em] text-orange-600">{t(language, "Immediate attention required", "तुरुन्त ध्यान आवश्यक छ")}</p>
           <h2 className="mt-2 text-2xl font-extrabold text-gray-900">{attentionNotification.title}</h2>
           <p className="mt-3 text-lg text-gray-700">{attentionNotification.message}</p>
-          <p className="mt-2 text-sm text-gray-500">Acknowledge this alert, then act on it now.</p>
-          <button onClick={acceptAttention} className="mt-6 w-full rounded-xl bg-orange-500 px-5 py-4 text-base font-bold text-white hover:bg-orange-600">Accept & view details</button>
-          <button onClick={() => setAttentionNotification(null)} aria-label="Minimize alert" className="mt-3 text-sm font-medium text-gray-500 hover:text-gray-700"><X className="mr-1 inline h-4 w-4" /> Minimize</button>
+          <p className="mt-2 text-sm text-gray-500">{t(language, "Acknowledge this alert, then act on it now.", "यो सूचना स्वीकार गरेर अहिले नै कारबाही गर्नुहोस्।")}</p>
+          <button onClick={acceptAttention} className="mt-6 w-full rounded-xl bg-orange-500 px-5 py-4 text-base font-bold text-white hover:bg-orange-600">{t(language, "Accept & view details", "स्वीकार गरेर विवरण हेर्नुहोस्")}</button>
+          <button onClick={() => setAttentionNotification(null)} aria-label="Minimize alert" className="mt-3 text-sm font-medium text-gray-500 hover:text-gray-700"><X className="mr-1 inline h-4 w-4" /> {t(language, "Minimize", "सानो बनाउनुहोस्")}</button>
         </div>
       </div>
     )}
