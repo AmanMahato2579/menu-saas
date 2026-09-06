@@ -1,5 +1,6 @@
 import { requireRestaurantAdmin } from "@/lib/auth-guard";
 import { prisma } from "@/lib/prisma";
+import { t } from "@/lib/i18n";
 import NotificationsClient from "./NotificationsClient";
 
 export const metadata = { title: "Notifications – MenuQR Admin" };
@@ -8,7 +9,7 @@ export const dynamic = "force-dynamic";
 export default async function NotificationsPage() {
   const user = await requireRestaurantAdmin();
 
-  const [notifications, unreadCount] = await Promise.all([
+  const [notifications, unreadCount, restaurant] = await Promise.all([
     prisma.notification.findMany({
       where: { restaurantId: user.restaurantId! },
       orderBy: { createdAt: "desc" },
@@ -17,21 +18,27 @@ export default async function NotificationsPage() {
     prisma.notification.count({
       where: { restaurantId: user.restaurantId!, read: false },
     }),
+    prisma.restaurant.findUnique({
+      where: { id: user.restaurantId! },
+      select: { language: true },
+    }),
   ]);
+  const lang = restaurant?.language ?? "EN";
 
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">Notifications</h1>
+        <h1 className="text-2xl font-bold text-gray-900">{t(lang, "Notifications", "सूचनाहरू")}</h1>
         <p className="text-gray-500 text-sm mt-1">
           {unreadCount > 0
-            ? `${unreadCount} unread notification${unreadCount === 1 ? "" : "s"}`
-            : "You're all caught up"}
+            ? `${unreadCount} ${t(lang, "unread notification", "नपढिएका सूचनाहरू")}${unreadCount > 1 ? (lang === "NEP" ? "" : "s") : ""}`
+            : t(lang, "You're all caught up", "सबै सूचना पढिसक्नुभयो")}
         </p>
       </div>
       <NotificationsClient
         notifications={JSON.parse(JSON.stringify(notifications))}
         unreadCount={unreadCount}
+        language={lang}
       />
     </div>
   );

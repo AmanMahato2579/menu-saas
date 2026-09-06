@@ -1,5 +1,6 @@
 import { requireRestaurantAdmin } from "@/lib/auth-guard";
 import { prisma } from "@/lib/prisma";
+import { t } from "@/lib/i18n";
 import TablesClient from "./TablesClient";
 
 export const metadata = { title: "Tables – MenuQR Admin" };
@@ -23,18 +24,21 @@ export default async function TablesPage() {
     },
   });
 
+  const lang = restaurant?.language ?? "EN";
+
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">Tables</h1>
+        <h1 className="text-2xl font-bold text-gray-900">{t(lang, "Tables", "टेबलहरू")}</h1>
         <p className="text-gray-500 text-sm mt-1">
-          Manage tables and generate QR codes for each table
+          {t(lang, "Manage tables and generate QR codes for each table", "टेबलहरू व्यवस्थापन गर्नुहोस् र प्रत्येक टेबलको लागि QR कोड बनाउनुहोस्")}
         </p>
       </div>
       <TablesClient
         tables={JSON.parse(JSON.stringify(tables))}
         restaurantSlug={restaurant?.slug ?? ""}
-        restaurantId={user.restaurantId!}
+        restaurantName={restaurant?.name ?? "Our Restaurant"}
+        language={lang}
       />
     </div>
   );

@@ -11,7 +11,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/components/ui/toast";
 import { Switch } from "@/components/ui/switch";
-import { Loader2, Save, Percent } from "lucide-react";
+import { Loader2, Save, Percent, Languages } from "lucide-react";
+import { LANGUAGE_OPTIONS } from "@/lib/i18n";
 
 const settingsSchema = z.object({
   name: z.string().min(1, "Name is required"),
@@ -20,6 +21,7 @@ const settingsSchema = z.object({
   phone: z.string().optional(),
   currency: z.string().default("Rs."),
   openingHours: z.string().optional(),
+  language: z.enum(["EN", "NEP"]).default("EN"),
   logoUrl: z.string().url().optional().or(z.literal("")),
   taxRate: z.coerce.number().min(0).max(100).default(0),
   isTaxEnabled: z.boolean().default(false),
@@ -38,6 +40,7 @@ interface Restaurant {
   phone: string | null;
   currency: string;
   openingHours: string | null;
+  language: string;
   logoUrl: string | null;
   taxRate: number;
   isTaxEnabled: boolean;
@@ -60,6 +63,7 @@ export default function SettingsClient({ restaurant }: Props) {
       phone: restaurant.phone ?? "",
       currency: restaurant.currency,
       openingHours: restaurant.openingHours ?? "",
+      language: (restaurant.language ?? "EN") as "EN" | "NEP",
       logoUrl: restaurant.logoUrl ?? "",
       taxRate: restaurant.taxRate ?? 0,
       isTaxEnabled: restaurant.isTaxEnabled ?? false,
@@ -91,6 +95,24 @@ export default function SettingsClient({ restaurant }: Props) {
           <CardTitle className="text-base">Restaurant Information</CardTitle>
         </CardHeader>
         <CardContent className="space-y-5">
+          <div className="space-y-1.5">
+            <Label className="flex items-center gap-1.5">
+              <Languages className="w-4 h-4 text-orange-500" /> Language / भाषा
+            </Label>
+            <select
+              {...register("language")}
+              className="w-full max-w-xs rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-orange-500"
+            >
+              {LANGUAGE_OPTIONS.map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
+            <p className="text-xs text-gray-400">
+              Changes the admin app buttons, status names and notification messages to Nepali.
+            </p>
+          </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-1.5 sm:col-span-2">
               <Label>Restaurant Name *</Label>

@@ -1,6 +1,17 @@
 import { prisma } from "@/lib/prisma";
 import { Prisma, OrderStatus } from "@prisma/client";
 import { createNotification } from "@/lib/notifications";
+import { newOrderMessage, newOrderTitle, newTableSessionMessage, newTableSessionTitle } from "@/lib/i18n";
+
+// Completed/Rejected order history is retained for exactly 24 hours.
+// Retention is anchored to statusChangedAt (the moment the order reached its
+// final COMPLETED / REJECTED status) rather than createdAt, so the window
+// starts from the status change, as required.
+export const ORDER_HISTORY_RETENTION_HOURS = 24;
+
+function retentionCutoff(): Date {
+  return new Date(Date.now() - ORDER_HISTORY_RETENTION_HOURS * 60 * 60 * 1000);
+}
 
 // ─── Restaurant queries ───────────────────────────────────────────────────────
 
@@ -44,13 +55,14 @@ export async function startTableSession(tableId: string, restaurantId: string, c
   // Notify the restaurant admin that a customer scanned the QR code
   const table = await prisma.table.findUnique({
     where: { id: tableId },
-    select: { tableNumber: true },
+    select: { tableNumber: true, restaurant: { select: { language: true } } },
   });
+  const lang = table?.restaurant?.language ?? "EN";
   await createNotification({
     restaurantId,
     type: "NEW_TABLE_SESSION",
-    title: "Guest arrived — service needed",
-    message: `${customerName?.trim() ? `${customerName.trim()} is` : "A guest is"} waiting at Table ${table?.tableNumber ?? tableId}. Please greet them.`,
+    title: newTableSessionTitle(lang),
+    message: newTableSessionMessage(lang, session.customerName, table?.tableNumber),
     link: "/admin/tables",
   });
 
@@ -112,7 +124,7 @@ export async function createOrder(input: CreateOrderInput) {
 
   const restaurant = await prisma.restaurant.findUnique({
     where: { id: restaurantId },
-    select: { isTaxEnabled: true, taxRate: true }
+    select: { isTaxEnabled: true, taxRate: true, language: true }
   });
 
   if (menuItems.length !== menuItemIds.length) {
@@ -188,13 +200,12 @@ export async function createOrder(input: CreateOrderInput) {
   const itemSummary = order.orderItems
     .map((i) => `${i.menuItemName} ×${i.quantity}`)
     .join(", ");
+  const lang = restaurant?.language ?? "EN";
   await createNotification({
     restaurantId,
     type: "NEW_ORDER",
-    title: `New order #${orderNumber}`,
-    message: tableNumber
-      ? `Table ${tableNumber} — ${itemSummary}`
-      : itemSummary,
+    title: newOrderTitle(lang, orderNumber),
+    message: newOrderMessage(lang, { orderNumber, tableNumber, itemSummary }),
     link: `/admin/orders?orderId=${order.id}`,
   });
 
@@ -227,7 +238,7 @@ export async function updateOrderStatus(
 ) {
   return prisma.order.update({
     where: { id: orderId, restaurantId }, // ensures tenant isolation
-    data: { status },
+    data: { status, statusChangedAt: new Date() },
   });
 }
 
@@ -258,18 +269,61 @@ export async function getSessionBill(tableSessionId: string, restaurantId: strin
 
 // ─── Admin queries ────────────────────────────────────────────────────────────
 
-export async function getAdminOrders(restaurantId: string, status?: OrderStatus) {
+export async function getAdminOrders(restaurantId: string, status?: OrderStatus | "ALL") {
+  // COMPLETED / REJECTED history is bounded to the 24-hour retention window.
+  // Active statuses (PENDING..READY) have no history limit and are always live.
+  const isHistoryStatus =
+    status === "COMPLETED" || status === "REJECTED";
+
+  const where: Prisma.OrderWhereInput = { restaurantId };
+  if (status && status !== "ALL") where.status = status;
+
+  if (isHistoryStatus) {
+    // Only fetch records inside the 24-hour window for history statuses. This
+    // keeps the payload small and uses the composite index — no continuous
+    // download of old orders.
+    where.statusChangedAt = { gte: retentionCutoff() };
+  } else if (!status || status === "ALL") {
+    // Running view (no explicit tab) and the "All Orders" tab: active orders
+    // are always live, while COMPLETED/REJECTED orders are bounded to the
+    // 24-hour retention window. "ALL" returns every order within that window.
+    where.OR = [
+      { status: { in: ["PENDING", "ACCEPTED", "PREPARING", "READY"] } },
+      { status: { in: ["COMPLETED", "REJECTED"] }, statusChangedAt: { gte: retentionCutoff() } },
+    ];
+  }
+
   return prisma.order.findMany({
-    where: {
-      restaurantId,
-      ...(status ? { status } : {}),
-    },
+    where,
     include: {
       orderItems: true,
       tableSession: { include: { table: true } },
     },
     orderBy: { createdAt: "desc" },
   });
+}
+
+/**
+ * Server-side physical cleanup of expired history rows (COMPLETED/REJECTED
+ * older than the 24-hour window). This is intentionally NOT called from the
+ * client on every request; run it via a scheduled job or cron on the server
+ * (see DEPLOYMENT notes). Scoped to a single restaurant for tenant safety, or
+ * across all restaurants when restaurantId is omitted. Never deletes active
+ * orders.
+ */
+export async function cleanupExpiredOrderHistory(restaurantId?: string) {
+  const cutoff = retentionCutoff();
+  const where: Prisma.OrderWhereInput = {
+    statusChangedAt: { lt: cutoff },
+    status: { in: ["COMPLETED", "REJECTED"] },
+  };
+  if (restaurantId) where.restaurantId = restaurantId;
+
+  // TableSession is intentionally NOT auto-deleted here: closing a session is
+  // an explicit, money-related action. Only the completed/rejected orders that
+  // have passed their retention are removed, keeping active sessions intact.
+  const result = await prisma.order.deleteMany({ where });
+  return result.count;
 }
 
 export async function getDashboardStats(restaurantId: string) {
@@ -294,7 +348,7 @@ export async function getDashboardStats(restaurantId: string) {
     prisma.order.count({ where: { restaurantId, status: "PREPARING" } }),
     prisma.order.count({ where: { restaurantId, status: "READY" } }),
     prisma.order.count({
-      where: { restaurantId, status: "COMPLETED", createdAt: { gte: today } },
+      where: { restaurantId, status: "COMPLETED", statusChangedAt: { gte: today } },
     }),
     prisma.table.count({ where: { restaurantId, isActive: true } }),
     prisma.order.aggregate({

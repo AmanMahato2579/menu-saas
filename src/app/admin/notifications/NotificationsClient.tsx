@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { PackageCheck, Table2, CheckCheck, RefreshCw, Bell } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { t } from "@/lib/i18n";
 import { Button } from "@/components/ui/button";
 
 interface Notification {
@@ -20,6 +21,7 @@ interface Notification {
 interface Props {
   notifications: Notification[];
   unreadCount: number;
+  language?: string;
 }
 
 function formatDate(dateStr: string) {
@@ -56,8 +58,9 @@ function NotificationIcon({ type }: { type: string }) {
   );
 }
 
-export default function NotificationsClient({ notifications, unreadCount: initialUnread }: Props) {
+export default function NotificationsClient({ notifications, unreadCount: initialUnread, language = "EN" }: Props) {
   const router = useRouter();
+  const lang = language;
   const [items, setItems] = useState(notifications);
   const [unreadCount, setUnreadCount] = useState(initialUnread);
   const [markingAll, setMarkingAll] = useState(false);
@@ -95,7 +98,7 @@ export default function NotificationsClient({ notifications, unreadCount: initia
             className="h-9"
           >
             <CheckCheck className="w-4 h-4" />
-            Mark all as read
+            {t(lang, "Mark all as read", "सबै पढियो चिन्ह लगाउनुहोस्")}
           </Button>
         )}
       </div>
@@ -105,9 +108,9 @@ export default function NotificationsClient({ notifications, unreadCount: initia
           <div className="w-16 h-16 bg-gray-100 rounded-2xl flex items-center justify-center mx-auto">
             <Bell className="w-8 h-8 text-gray-300" />
           </div>
-          <p className="text-lg font-medium text-gray-500 mt-4">No notifications</p>
+          <p className="text-lg font-medium text-gray-500 mt-4">{t(lang, "No notifications", "कुनै सूचना छैन")}</p>
           <p className="text-sm mt-1">
-            Notifications about new orders and table activity will appear here.
+            {t(lang, "Notifications about new orders and table activity will appear here.", "नयाँ अर्डर र टेबल गतिविधिका सूचनाहरू यहाँ देखिनेछन्।")}
           </p>
         </div>
       ) : (
@@ -137,7 +140,7 @@ export default function NotificationsClient({ notifications, unreadCount: initia
                   onClick={() => markOneRead(n)}
                   className="text-xs font-medium text-orange-600 hover:text-orange-700 mt-1 shrink-0"
                 >
-                  View
+                  {t(lang, "View", "हेर्नुहोस्")}
                 </Link>
               )}
             </div>

@@ -309,8 +309,8 @@ Both commands should print a version number and no errors.
    # Push notification keys — generate once with `npx web-push generate-vapid-keys`
    # (Step 4.6). Never regenerate these later; it invalidates every device that
    # already enabled notifications.
-   NEXT_PUBLIC_VAPID_PUBLIC_KEY=<paste-the-public-key>
-   VAPID_PRIVATE_KEY=<paste-the-private-key>
+   NEXT_PUBLIC_VAPID_PUBLIC_KEY=<BHdZWXqOJHDe2_DPcDbq6JJUMmAvt1FnN9KdsIqnC1XQCSYhxlW40DTGKCrmgmOjUmBeqsYQ5N9sZI2bGTdGzP0>
+   VAPID_PRIVATE_KEY=<C9urVxaHzlDFWdbsgpFahZ8_79V6qXk2xRgwXBff3Q4>
    VAPID_SUBJECT=mailto:<your-support-email>
 
    # Database credentials (create a strong password, like: MyRest$2024!xQ7)
@@ -690,6 +690,76 @@ it's 15 extra minutes and worth it since we have our first client.
 
 **Checkpoint:** `/var/backups/menu-saas/` contains at least one `.sql.gz` file,
 and `crontab -l` shows the nightly job.
+
+---
+
+## Step 13A — Schedule the 24-hour order-history cleanup (recommended)
+
+Completed/Rejected orders are always filtered to the last 24 hours at the query
+level, so old history is never sent to the admin UI. To also *physically remove*
+expired rows (freeing Supabase storage) run a nightly cleanup on the server.
+
+Create a cleanup script:
+
+```bash
+nano /root/cleanup-orders.sh
+```
+
+```bash
+#!/bin/bash
+# Delete COMPLETED / REJECTED orders whose 24-hour window has passed.
+# Uses statusChangedAt (the moment the order reached its final status).
+# Deleting an Order cascades to its OrderItems automatically.
+cd ~/app
+docker compose exec -T postgres psql -U ${POSTGRES_USER} ${POSTGRES_DB} -c "
+DELETE FROM \"Order\"
+WHERE \"status\" IN ('COMPLETED','REJECTED')
+  AND \"statusChangedAt\" < NOW() - INTERVAL '24 hours';
+"
+```
+
+Make it runnable and schedule it nightly:
+
+```bash
+chmod +x /root/cleanup-orders.sh
+crontab -e
+```
+
+Add this line (runs at 4:05 AM):
+
+```
+5 4 * * * /root/cleanup-orders.sh >> /var/log/menu-saas-cleanup.log 2>&1
+```
+
+The query filtering is the source of truth for the 24-hour window — the cron job
+only reclaims disk space and never changes what the UI shows.
+
+---
+
+## Step 13B — Android "Unsafe app blocked" warning (PWA)
+
+The app is a **web app (PWA)**, not a native Android app — there is no APK/AAB,
+no `targetSdkVersion`/Gradle configuration, and nothing for Android to build.
+
+The "Unsafe app blocked / built for an older version of Android" banner comes
+from the **installed PWA shortcut on the phone** (added via Chrome's "Add to
+Home screen"). The banner compares the PWA's manifest/web-app metadata with the
+latest Android requirements. It is a reminder banner, not an app-level failure.
+
+To resolve it on each test phone:
+
+1. Open Chrome → menu (⋮) → **History** → **Clear browsing data** → **Cached
+   images and files** (or long-press the MenuQR icon → Remove).
+2. Open the site again (`https://<your-domain>`), then Chrome menu (⋮) →
+   **Add to Home screen** → **Install**. This re-registers the PWA with the
+   newest metadata (fresh manifest + service worker), which clears the stale
+   warning.
+3. If the banner still shows, update Chrome on the phone
+   (Play Store → Update), then re-install the shortcut.
+
+No code change was required: `targetSdkVersion`/`compileSdkVersion` do not exist
+for a PWA. The `public/manifest.json` and `public/sw.js` already target modern
+Android (standalone display, maskable icons, portrait orientation).
 
 ---
 

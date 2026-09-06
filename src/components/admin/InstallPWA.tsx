@@ -3,13 +3,14 @@
 import { useState, useEffect } from "react";
 import { Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { t } from "@/lib/i18n";
 
 type BeforeInstallPromptEvent = Event & {
   prompt: () => Promise<void>;
   userChoice: Promise<{ outcome: "accepted" | "dismissed" }>;
 };
 
-export default function InstallPWA() {
+export default function InstallPWA({ language = "EN" }: { language?: string }) {
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
   const [isInstallable, setIsInstallable] = useState(false);
 
@@ -47,7 +48,7 @@ export default function InstallPWA() {
         className="w-full flex items-center gap-2 bg-orange-500/10 text-orange-400 border-orange-500/20 hover:bg-orange-500/20 hover:text-orange-300"
       >
         <Download className="w-4 h-4" />
-        Install App
+        {t(language, "Install App", "एप स्थापना गर्नुहोस्")}
       </Button>
     </div>
   );

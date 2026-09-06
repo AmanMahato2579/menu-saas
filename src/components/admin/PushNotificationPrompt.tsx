@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import { BellPlus, X } from "lucide-react";
+import { t } from "@/lib/i18n";
 
 function urlBase64ToUint8Array(base64String: string) {
   const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
@@ -37,7 +38,7 @@ function pushIsSupported() {
   );
 }
 
-export default function PushNotificationPrompt() {
+export default function PushNotificationPrompt({ language = "EN" }: { language?: string }) {
   const vapidPublicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
   const [visible, setVisible] = React.useState(
     () => Boolean(vapidPublicKey) && pushIsSupported() && Notification.permission === "default"
@@ -75,14 +76,14 @@ export default function PushNotificationPrompt() {
     <div className="flex items-center gap-3 bg-orange-50 border border-orange-200 rounded-lg px-4 py-2.5 text-sm mb-4">
       <BellPlus className="w-4 h-4 text-orange-600 shrink-0" />
       <p className="text-orange-800 flex-1">
-        Turn on notifications to hear about new orders even when this tab isn&apos;t open.
+        {t(language, "Turn on notifications to hear about new orders even when this tab isn't open.", "यो ट्याब खुला नहुँदा पनि नयाँ अर्डरको जानकारी पाउन सूचना अन गर्नुहोस्।")}
       </p>
       <button
         onClick={handleEnable}
         disabled={busy}
         className="text-orange-700 font-semibold hover:text-orange-800 whitespace-nowrap disabled:opacity-50"
       >
-        {busy ? "Enabling…" : "Enable"}
+        {busy ? t(language, "Enabling…", "अन गर्दै…") : t(language, "Enable", "अन गर्नुहोस्")}
       </button>
       <button
         onClick={() => setVisible(false)}
