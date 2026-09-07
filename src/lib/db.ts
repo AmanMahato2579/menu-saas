@@ -87,11 +87,11 @@ export async function startTableSession(tableId: string, restaurantId: string, c
 export async function getPublicMenu(restaurantId: string) {
   return prisma.category.findMany({
     where: { restaurantId, isActive: true },
-    orderBy: { createdAt: "asc" },
+    orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
     include: {
       menuItems: {
         where: { restaurantId, isAvailable: true },
-        orderBy: { createdAt: "asc" },
+        orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
         include: { variants: { where: { isAvailable: true }, orderBy: { createdAt: "asc" } } },
       },
     },

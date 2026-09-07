@@ -96,6 +96,7 @@ model Category {
   name         String
   description  String?
   isActive     Boolean    @default(true)
+  sortOrder    Int        @default(0)
   createdAt    DateTime   @default(now())
   updatedAt    DateTime   @updatedAt
   restaurant   Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
@@ -115,6 +116,7 @@ model MenuItem {
   ingredients     String?
   discountPercent Int               @default(0)
   isAvailable     Boolean           @default(true)
+  sortOrder       Int               @default(0)
   hasSpicyOption  Boolean           @default(false)
   hasNoteOption   Boolean           @default(true)
   createdAt       DateTime          @default(now())
