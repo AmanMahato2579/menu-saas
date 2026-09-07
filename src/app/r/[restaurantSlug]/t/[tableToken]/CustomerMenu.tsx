@@ -122,7 +122,11 @@ export default function CustomerMenu({ restaurant, table, tableSession, categori
   const addToCart = (item: CartItem) => {
     setCart((prev) => {
       const idx = prev.findIndex(
-        (c) => c.menuItemId === item.menuItemId && c.isSpicy === item.isSpicy && c.note === item.note
+        (c) =>
+          c.menuItemId === item.menuItemId &&
+          c.variantId === item.variantId &&
+          c.isSpicy === item.isSpicy &&
+          c.note === item.note
       );
       let newCart: CartItem[];
       if (idx >= 0) {
@@ -392,7 +396,7 @@ export default function CustomerMenu({ restaurant, table, tableSession, categori
             href={`${baseUrl}/bill`}
             className="flex items-center justify-between p-4 bg-white rounded-2xl border shadow-sm hover:shadow-md transition-shadow"
           >
-            <span className="font-medium text-gray-700">View Bill</span>
+            <span className="font-medium text-gray-700">View Full Bill</span>
             <ChevronRight className="w-4 h-4 text-gray-400" />
           </Link>
           <button onClick={callForHelp} disabled={calling} className="w-full flex items-center justify-between p-4 bg-orange-50 text-orange-700 rounded-2xl border border-orange-200 font-medium">
