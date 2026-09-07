@@ -15,10 +15,11 @@ export default async function MenuPage() {
   const [categories, restaurant] = await Promise.all([
     prisma.category.findMany({
       where: { restaurantId },
-      orderBy: { createdAt: "asc" },
+      orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
       include: {
         menuItems: {
-          orderBy: { createdAt: "asc" },
+          orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
+          include: { variants: { orderBy: { createdAt: "asc" } } },
         },
       },
     }),

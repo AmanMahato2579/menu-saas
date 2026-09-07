@@ -59,16 +59,65 @@ export async function PATCH(
     updateData.price = variants[0].price;
   }
 
+  // Sync variants in place: keep the same row ids whenever possible so that
+  // per-variant availability and existing order-item links are preserved.
+  // Only variants that were removed from the submitted list are deleted.
+  const ops: Prisma.PrismaPromise<unknown>[] = [];
+
   if (variants) {
     if (variants.length === 0) {
       updateData.foodType = "NONE";
+      ops.push(prisma.menuItemVariant.deleteMany({ where: { menuItemId: itemId } }));
     } else {
       updateData.foodType = deriveFoodType(variants);
+
+      const current = await prisma.menuItemVariant.findMany({ where: { menuItemId: itemId } });
+      const currentById = new Map(current.map((v) => [v.id, v]));
+      const validIds = new Set<string>();
+      for (const v of variants) {
+        if (v.id && currentById.has(v.id)) validIds.add(v.id);
+      }
+
+      ops.push(
+        prisma.menuItemVariant.deleteMany({
+          where: { menuItemId: itemId, id: { notIn: [...validIds] } },
+        })
+      );
+
+      for (const v of variants) {
+        if (v.id && validIds.has(v.id)) {
+          ops.push(
+            prisma.menuItemVariant.update({
+              where: { id: v.id },
+              data: {
+                name: v.name,
+                price: v.price,
+                foodType: v.foodType ?? null,
+                isAvailable: v.isAvailable ?? true,
+              },
+            })
+          );
+        } else {
+          ops.push(
+            prisma.menuItemVariant.create({
+              data: {
+                menuItemId: itemId,
+                name: v.name,
+                price: v.price,
+                foodType: v.foodType ?? null,
+                isAvailable: v.isAvailable ?? true,
+              },
+            })
+          );
+        }
+      }
     }
-    updateData.variants = { deleteMany: {}, create: variants.map(({ id: _id, ...variant }) => variant) };
   }
-  const updated = await prisma.menuItem.update({ where: { id: itemId }, data: updateData });
-  return NextResponse.json(updated);
+
+  ops.push(prisma.menuItem.update({ where: { id: itemId }, data: updateData }));
+
+  const updated = await prisma.$transaction(ops);
+  return NextResponse.json(updated[updated.length - 1]);
 }
 
 export async function DELETE(

@@ -61,14 +61,16 @@ interface Props {
 }
 
 const CART_KEY = (sessionId: string) => `cart_${sessionId}`;
-const CUSTOMER_TOKEN_KEY = "menuqr_customer_token";
+const CUSTOMER_TOKEN_KEY = "menuqr_customer_session";
 
 function getOrCreateCustomerToken(): string {
   if (typeof window === "undefined") return "";
-  let token = localStorage.getItem(CUSTOMER_TOKEN_KEY);
+  // sessionStorage keeps the dining session alive for the active tab only and
+  // clears on close, so customer/QR sessions never persist across visits.
+  let token = sessionStorage.getItem(CUSTOMER_TOKEN_KEY);
   if (!token) {
     token = `ct_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`;
-    localStorage.setItem(CUSTOMER_TOKEN_KEY, token);
+    sessionStorage.setItem(CUSTOMER_TOKEN_KEY, token);
   }
   return token;
 }
@@ -81,7 +83,7 @@ export default function CustomerMenu({ restaurant, table, tableSession, categori
   const [foodFilter, setFoodFilter] = useState<"ALL" | "VEG" | "NON_VEG">("ALL");
   const [cart, setCart] = useState<CartItem[]>(() => {
     if (typeof window === "undefined") return [];
-    const saved = tableSession && localStorage.getItem(CART_KEY(tableSession.id));
+    const saved = tableSession && sessionStorage.getItem(CART_KEY(tableSession.id));
     if (saved) {
       try { return JSON.parse(saved) as CartItem[]; } catch {}
     }
@@ -111,10 +113,10 @@ export default function CustomerMenu({ restaurant, table, tableSession, categori
 
   // (cart is initialized from localStorage in the state initializer)
 
-  // Save cart to localStorage
+  // Save cart to sessionStorage
   const updateCart = (newCart: CartItem[]) => {
     setCart(newCart);
-    if (tableSession) localStorage.setItem(CART_KEY(tableSession.id), JSON.stringify(newCart));
+    if (tableSession) sessionStorage.setItem(CART_KEY(tableSession.id), JSON.stringify(newCart));
   };
 
   const addToCart = (item: CartItem) => {
@@ -129,7 +131,7 @@ export default function CustomerMenu({ restaurant, table, tableSession, categori
       } else {
         newCart = [...prev, item];
       }
-      if (tableSession) localStorage.setItem(CART_KEY(tableSession.id), JSON.stringify(newCart));
+      if (tableSession) sessionStorage.setItem(CART_KEY(tableSession.id), JSON.stringify(newCart));
       return newCart;
     });
     setSelectedItem(null);

@@ -5,7 +5,7 @@
   "description": "QR-based digital menu & ordering for restaurants",
   "lang": "en",
   "dir": "ltr",
-  "start_url": "/",
+  "start_url": "/admin",
   "scope": "/",
   "display": "standalone",
   "background_color": "#ffffff",

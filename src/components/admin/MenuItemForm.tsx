@@ -30,9 +30,11 @@ const itemSchema = z.object({
   ingredients: z.string().optional(),
   discountPercent: z.coerce.number().int().min(0).max(100).default(0),
   variants: z.array(z.object({
+    id: z.string().optional(),
     name: z.string().min(1, "Variant name is required"),
     price: z.coerce.number().positive("Variant price must be positive"),
     foodType: z.enum(FOOD_TYPES).default("NONE"),
+    isAvailable: z.boolean().default(true),
   })).default([]),
 }).superRefine((data, ctx) => {
   if ((!data.variants || data.variants.length === 0) && (!data.price || data.price <= 0)) {
@@ -64,12 +66,27 @@ interface MenuItem {
   hasSpicyOption: boolean;
   hasNoteOption: boolean;
   foodType: string | null;
-  variants?: { id: string; name: string; price: string; foodType?: string | null }[];
+  variants?: { id: string; name: string; price: string; foodType?: string | null; isAvailable?: boolean }[];
 }
 
 /** Normalize legacy/unknown food-type values to the supported set. */
 function normalizeFoodType(value: string | null | undefined): FoodType {
   return value === "VEG" || value === "NON_VEG" || value === "NONE" ? value : "NONE";
+}
+
+// Prices are whole numbers only: ignore scroll-wheel changes, strip everything
+// but digits, and stop decimal/exponent/negative keys from ever being entered.
+function preventWheel(e: React.WheelEvent<HTMLInputElement>) {
+  e.currentTarget.blur();
+}
+
+function blockNonIntegerKeys(e: React.KeyboardEvent<HTMLInputElement>) {
+  if ([".", ",", "e", "E", "+", "-"].includes(e.key)) e.preventDefault();
+}
+
+function keepIntegerOnly(e: React.ChangeEvent<HTMLInputElement>) {
+  const clean = e.target.value.replace(/\D/g, "");
+  if (e.target.value !== clean) e.target.value = clean;
 }
 
 interface Props {
@@ -103,15 +120,16 @@ export default function MenuItemForm({ categories, defaultCategoryId, item }: Pr
       hasSpicyOption: item?.hasSpicyOption ?? false,
       hasNoteOption: item?.hasNoteOption ?? true,
       variants: item?.variants?.map((variant) => ({
+        id: variant.id,
         name: variant.name,
         price: Number(variant.price),
         foodType: normalizeFoodType(variant.foodType),
+        isAvailable: variant.isAvailable ?? true,
       })) ?? [],
     },
   });
   const { fields: variants, append: addVariant, remove: removeVariant } = useFieldArray({ control, name: "variants" });
 
-  const isAvailable = watch("isAvailable");
   const hasSpicyOption = watch("hasSpicyOption");
   const hasNoteOption = watch("hasNoteOption");
   const watchedVariants = watch("variants");
@@ -193,8 +211,11 @@ export default function MenuItemForm({ categories, defaultCategoryId, item }: Pr
               type="number"
               step="1"
               min="0"
+              inputMode="numeric"
               placeholder={watchedVariants && watchedVariants.length > 0 ? "Auto-filled from variants" : "180"}
-              {...register("price")}
+              {...register("price", { onChange: keepIntegerOnly })}
+              onWheel={preventWheel}
+              onKeyDown={blockNonIntegerKeys}
               className="appearance-none [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
             />
             {errors.price && <p className="text-red-500 text-xs">{errors.price.message}</p>}
@@ -214,7 +235,7 @@ export default function MenuItemForm({ categories, defaultCategoryId, item }: Pr
                 variant="outline"
                 size="sm"
                 className="bg-white hover:bg-orange-50 border-orange-200 text-orange-600 font-semibold shrink-0"
-                onClick={() => addVariant({ name: "", price: 0, foodType: "NONE" })}
+                onClick={() => addVariant({ name: "", price: 0, foodType: "NONE", isAvailable: true })}
               >
                 + Add Variant
               </Button>
@@ -233,9 +254,12 @@ export default function MenuItemForm({ categories, defaultCategoryId, item }: Pr
                       type="number"
                       min="0"
                       step="1"
+                      inputMode="numeric"
                       placeholder="Price (Rs.)"
-                      {...register(`variants.${index}.price`)}
-                      className="w-28"
+                      {...register(`variants.${index}.price`, { onChange: keepIntegerOnly })}
+                      onWheel={preventWheel}
+                      onKeyDown={blockNonIntegerKeys}
+                      className="w-28 appearance-none [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
                     />
                     <select
                       {...register(`variants.${index}.foodType`)}
@@ -288,8 +312,11 @@ export default function MenuItemForm({ categories, defaultCategoryId, item }: Pr
               step="1"
               min="0"
               max="100"
+              inputMode="numeric"
               placeholder="0"
-              {...register("discountPercent")}
+              {...register("discountPercent", { onChange: keepIntegerOnly })}
+              onWheel={preventWheel}
+              onKeyDown={blockNonIntegerKeys}
               className="appearance-none [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
             />
             {errors.discountPercent && <p className="text-red-500 text-xs">{errors.discountPercent.message}</p>}
@@ -297,17 +324,6 @@ export default function MenuItemForm({ categories, defaultCategoryId, item }: Pr
 
           {/* Toggles */}
           <div className="space-y-3 pt-2 border-t">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-900">Available</p>
-                <p className="text-xs text-gray-400">Show this item to customers</p>
-              </div>
-              <Switch
-                checked={isAvailable}
-                onCheckedChange={(val) => setValue("isAvailable", val)}
-              />
-            </div>
-
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-gray-900">Spicy Option</p>
