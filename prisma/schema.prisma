@@ -137,6 +137,7 @@ model MenuItemVariant {
   name        String
   price       Decimal     @db.Decimal(10, 2)
   isAvailable Boolean     @default(true)
+  sortOrder   Int         @default(0)
   createdAt   DateTime    @default(now())
   updatedAt   DateTime    @updatedAt
   foodType    String?

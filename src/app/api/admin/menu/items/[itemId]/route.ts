@@ -78,6 +78,10 @@ export async function PATCH(
         if (v.id && currentById.has(v.id)) validIds.add(v.id);
       }
 
+      // New variants append after the existing ones (in the currently ordered
+      // list) instead of tying at sortOrder 0.
+      let nextSortOrder = current.length;
+
       ops.push(
         prisma.menuItemVariant.deleteMany({
           where: { menuItemId: itemId, id: { notIn: [...validIds] } },
@@ -106,6 +110,7 @@ export async function PATCH(
                 price: v.price,
                 foodType: v.foodType ?? null,
                 isAvailable: v.isAvailable ?? true,
+                sortOrder: nextSortOrder++,
               },
             })
           );

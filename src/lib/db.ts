@@ -92,7 +92,12 @@ export async function getPublicMenu(restaurantId: string) {
       menuItems: {
         where: { restaurantId, isAvailable: true },
         orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
-        include: { variants: { where: { isAvailable: true }, orderBy: { createdAt: "asc" } } },
+        include: {
+          variants: {
+            where: { isAvailable: true },
+            orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
+          },
+        },
       },
     },
   });
