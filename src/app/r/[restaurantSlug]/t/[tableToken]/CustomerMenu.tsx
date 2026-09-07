@@ -250,7 +250,7 @@ export default function CustomerMenu({ restaurant, table, tableSession, categori
         {/* Category Nav */}
         {categories.length > 1 && (
           <div className="sticky top-0 z-30 bg-gray-50/95 backdrop-blur-sm px-4 pt-4 pb-2">
-            <div className="flex gap-2 overflow-x-auto pb-1 -mx-4 px-4">
+            <div className="flex gap-2 overflow-x-auto pb-1 -mx-4 px-4 scrollbar-hide">
               {categories.map((cat) => (
                 <button
                   key={cat.id}
@@ -270,12 +270,12 @@ export default function CustomerMenu({ restaurant, table, tableSession, categori
 
         {/* Food Type Filter */}
         <div className="px-4 pt-3">
-          <div className="flex gap-2">
+          <div className="flex gap-2 overflow-x-auto">
             {(["ALL", "VEG", "NON_VEG"] as const).map((f) => (
               <button
                 key={f}
                 onClick={() => setFoodFilter(f)}
-                className={`px-4 py-1.5 rounded-full text-sm font-medium border transition-all ${
+                className={`shrink-0 px-4 py-1.5 rounded-full text-sm font-medium border transition-all ${
                   foodFilter === f
                     ? f === "NON_VEG"
                       ? "bg-red-500 text-white border-red-500"
@@ -318,7 +318,7 @@ export default function CustomerMenu({ restaurant, table, tableSession, categori
                         <img
                           src={item.imageUrl}
                           alt={item.name}
-                          className="w-24 h-24 object-cover shrink-0"
+                          className="w-20 h-20 sm:w-24 sm:h-24 object-cover shrink-0"
                           loading="lazy"
                         />
                       )}
@@ -330,7 +330,7 @@ export default function CustomerMenu({ restaurant, table, tableSession, categori
                             ) : (
                               <span className={`w-3 h-3 rounded-sm border-2 flex-shrink-0 ${resolveType(item) === "NON_VEG" ? "border-red-500" : "border-green-500"}`} title={resolveType(item) === "NON_VEG" ? "Non-Veg" : "Veg"} />
                             )}
-                            <p className="font-semibold text-gray-900">{item.name}</p>
+                            <p className="font-semibold text-gray-900 truncate">{item.name}</p>
                           </div>
                           {item.description && (
                             <p className="text-xs text-gray-400 mt-0.5 line-clamp-2">{item.description}</p>
