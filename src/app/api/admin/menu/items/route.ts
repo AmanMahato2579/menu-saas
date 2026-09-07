@@ -18,6 +18,7 @@ const itemSchema = z.object({
     name: z.string().trim().min(1).max(50),
     price: z.coerce.number().positive(),
     foodType: z.enum(["VEG", "NON_VEG", "NONE"]).optional().nullable(),
+    isAvailable: z.boolean().optional(),
   })).max(20).default([]),
 }).superRefine((data, ctx) => {
   if ((!data.variants || data.variants.length === 0) && data.price <= 0) {
@@ -66,6 +67,8 @@ export async function POST(req: Request) {
       ...parsed.data,
       price: finalPrice,
       restaurantId,
+      categoryId: category.id,
+      sortOrder: await prisma.menuItem.count({ where: { categoryId: category.id } }),
       foodType: deriveFoodType(parsed.data.variants),
       imageUrl: parsed.data.imageUrl || null,
       variants: { create: parsed.data.variants },

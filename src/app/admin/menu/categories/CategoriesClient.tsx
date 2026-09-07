@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useTransition, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import type { Resolver } from "react-hook-form";
@@ -42,6 +42,24 @@ export default function CategoriesClient({ categories: initialCategories, restau
   const [, startTransition] = useTransition();
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const formRef = useRef<HTMLDivElement | null>(null);
+
+  // Support deep-linking into the edit form (e.g. /admin/menu/categories?edit=<id>).
+  useEffect(() => {
+    const editId = new URLSearchParams(window.location.search).get("edit");
+    if (!editId) return;
+    const cat = initialCategories.find((c) => c.id === editId);
+    if (cat) {
+      setEditingId(cat.id);
+      setShowForm(true);
+      reset({
+        name: cat.name,
+        description: cat.description ?? "",
+        isActive: cat.isActive,
+      });
+      setTimeout(() => formRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" }), 50);
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const {
     register,
@@ -167,7 +185,7 @@ export default function CategoriesClient({ categories: initialCategories, restau
 
       {/* Right: Form */}
       {showForm && (
-        <div className="lg:col-span-1">
+        <div className="lg:col-span-1" ref={formRef}>
           <Card className="sticky top-6">
             <CardHeader className="pb-4">
               <div className="flex items-center justify-between">

@@ -10,14 +10,17 @@ import { ArrowLeft, Trash2, Minus, Plus, Loader2, ShoppingCart } from "lucide-re
 import type { CartItem } from "@/types";
 
 const CART_KEY = (sessionId: string) => `cart_${sessionId}`;
-const CUSTOMER_TOKEN_KEY = "menuqr_customer_token";
+const CUSTOMER_TOKEN_KEY = "menuqr_customer_session";
 
 function getCustomerToken(): string {
   if (typeof window === "undefined") return "";
-  let token = localStorage.getItem(CUSTOMER_TOKEN_KEY);
+  // sessionStorage keeps a customer's identity + cart alive for the current tab
+  // (survives refreshes) but clears when the tab/app is closed, so dining
+  // sessions stay ephemeral instead of lingering in the browser.
+  let token = sessionStorage.getItem(CUSTOMER_TOKEN_KEY);
   if (!token) {
     token = `ct_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`;
-    localStorage.setItem(CUSTOMER_TOKEN_KEY, token);
+    sessionStorage.setItem(CUSTOMER_TOKEN_KEY, token);
   }
   return token;
 }
@@ -45,7 +48,7 @@ export default function CartClient({ restaurant, table, tableSession }: Props) {
   const { toast } = useToast();
   const [cart, setCart] = useState<CartItem[]>(() => {
     if (typeof window === "undefined") return [];
-    const saved = localStorage.getItem(CART_KEY(tableSession.id));
+    const saved = sessionStorage.getItem(CART_KEY(tableSession.id));
     if (saved) {
       try { return JSON.parse(saved) as CartItem[]; } catch {}
     }
@@ -59,13 +62,13 @@ export default function CartClient({ restaurant, table, tableSession }: Props) {
     const newCart = [...cart];
     newCart[idx] = { ...newCart[idx], quantity: Math.max(1, newCart[idx].quantity + delta) };
     setCart(newCart);
-    localStorage.setItem(CART_KEY(tableSession.id), JSON.stringify(newCart));
+    sessionStorage.setItem(CART_KEY(tableSession.id), JSON.stringify(newCart));
   };
 
   const removeItem = (idx: number) => {
     const newCart = cart.filter((_, i) => i !== idx);
     setCart(newCart);
-    localStorage.setItem(CART_KEY(tableSession.id), JSON.stringify(newCart));
+    sessionStorage.setItem(CART_KEY(tableSession.id), JSON.stringify(newCart));
   };
 
   const subtotal = cart.reduce((sum, i) => sum + i.price * i.quantity, 0);
@@ -105,7 +108,7 @@ export default function CartClient({ restaurant, table, tableSession }: Props) {
 
       const order = await res.json();
       // Clear cart
-      localStorage.setItem(CART_KEY(tableSession.id), "[]");
+      sessionStorage.setItem(CART_KEY(tableSession.id), "[]");
       setCart([]);
       toast({ title: "Order placed! 🎉", variant: "success", description: `Order #${order.orderNumber} received.` });
       // Keep the guest in the active session so they can add more items later.
