@@ -26,18 +26,39 @@ function playAttentionSound() {
     const AudioContextClass = window.AudioContext || (window as typeof window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
     if (!AudioContextClass) return;
     const context = new AudioContextClass();
-    const oscillator = context.createOscillator();
-    const gain = context.createGain();
-    oscillator.type = "sine";
-    oscillator.frequency.setValueAtTime(880, context.currentTime);
-    oscillator.frequency.setValueAtTime(660, context.currentTime + 0.18);
-    gain.gain.setValueAtTime(0.0001, context.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.22, context.currentTime + 0.02);
-    gain.gain.exponentialRampToValueAtTime(0.0001, context.currentTime + 0.7);
-    oscillator.connect(gain).connect(context.destination);
-    oscillator.start();
-    oscillator.stop(context.currentTime + 0.72);
-    oscillator.addEventListener("ended", () => context.close());
+
+    // Three ascending notes make a clear, attention-grabbing chime that is
+    // easy to hear even when the admin is on another screen/tab.
+    const notes = [
+      { freq: 660, time: 0.0 },
+      { freq: 880, time: 0.28 },
+      { freq: 1174.66, time: 0.56 }, // D6
+    ];
+    const duration = 0.35; // seconds each note sustains
+    const total = 1.5;
+
+    notes.forEach(({ freq, time }) => {
+      const oscillator = context.createOscillator();
+      const gain = context.createGain();
+      oscillator.type = "triangle";
+      oscillator.frequency.setValueAtTime(freq, context.currentTime + time);
+      // Per-note envelope: quick attack, gentle decay
+      gain.gain.setValueAtTime(0.0001, context.currentTime + time);
+      gain.gain.exponentialRampToValueAtTime(0.28, context.currentTime + time + 0.03);
+      gain.gain.exponentialRampToValueAtTime(0.0001, context.currentTime + time + duration);
+      oscillator.connect(gain).connect(context.destination);
+      oscillator.start(context.currentTime + time);
+      oscillator.stop(context.currentTime + time + duration + 0.05);
+      oscillator.addEventListener("ended", () => {
+        if (time + duration >= total - 0.1) context.close();
+      });
+    });
+
+    // Vibrate on mobile: three short pulses matching the chime rhythm.
+    // (Only works on Android; iOS Safari ignores navigator.vibrate.)
+    if (typeof navigator !== "undefined" && "vibrate" in navigator) {
+      navigator.vibrate([120, 90, 120, 90, 220]);
+    }
   } catch { /* Browsers may block sound until the owner interacts with the page. */ }
 }
 
