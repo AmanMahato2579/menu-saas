@@ -381,9 +381,6 @@ export default function CustomerMenu({ restaurant, table, tableSession, categori
 
         {/* Nav links */}
         <div className="px-4 mt-8 space-y-2">
-          <button onClick={callForHelp} disabled={calling} className="w-full flex items-center justify-between p-4 bg-orange-50 text-orange-700 rounded-2xl border border-orange-200 font-medium">
-            <span className="flex items-center gap-2"><BellRing className="w-5 h-5" /> Call for assistance</span><span className="text-xs">{calling ? "Sending…" : "Always available"}</span>
-          </button>
           <Link
             href={`${baseUrl}/orders`}
             className="flex items-center justify-between p-4 bg-white rounded-2xl border shadow-sm hover:shadow-md transition-shadow"
@@ -398,6 +395,9 @@ export default function CustomerMenu({ restaurant, table, tableSession, categori
             <span className="font-medium text-gray-700">View Bill</span>
             <ChevronRight className="w-4 h-4 text-gray-400" />
           </Link>
+          <button onClick={callForHelp} disabled={calling} className="w-full flex items-center justify-between p-4 bg-orange-50 text-orange-700 rounded-2xl border border-orange-200 font-medium">
+            <span className="flex items-center gap-2"><BellRing className="w-5 h-5" /> Call for assistance</span><span className="text-xs">{calling ? "Sending…" : "Always available"}</span>
+          </button>
         </div>
       </div>
 
