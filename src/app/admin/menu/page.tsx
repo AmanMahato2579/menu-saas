@@ -19,7 +19,7 @@ export default async function MenuPage() {
       include: {
         menuItems: {
           orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
-          include: { variants: { orderBy: { createdAt: "asc" } } },
+          include: { variants: { orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }] } },
         },
       },
     }),
