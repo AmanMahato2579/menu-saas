@@ -61,14 +61,16 @@ interface Props {
 }
 
 const CART_KEY = (sessionId: string) => `cart_${sessionId}`;
-const CUSTOMER_TOKEN_KEY = "menuqr_customer_token";
+const CUSTOMER_TOKEN_KEY = "menuqr_customer_session";
 
 function getOrCreateCustomerToken(): string {
   if (typeof window === "undefined") return "";
-  let token = localStorage.getItem(CUSTOMER_TOKEN_KEY);
+  // sessionStorage keeps the dining session alive for the active tab only and
+  // clears on close, so customer/QR sessions never persist across visits.
+  let token = sessionStorage.getItem(CUSTOMER_TOKEN_KEY);
   if (!token) {
     token = `ct_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`;
-    localStorage.setItem(CUSTOMER_TOKEN_KEY, token);
+    sessionStorage.setItem(CUSTOMER_TOKEN_KEY, token);
   }
   return token;
 }
@@ -81,7 +83,7 @@ export default function CustomerMenu({ restaurant, table, tableSession, categori
   const [foodFilter, setFoodFilter] = useState<"ALL" | "VEG" | "NON_VEG">("ALL");
   const [cart, setCart] = useState<CartItem[]>(() => {
     if (typeof window === "undefined") return [];
-    const saved = tableSession && localStorage.getItem(CART_KEY(tableSession.id));
+    const saved = tableSession && sessionStorage.getItem(CART_KEY(tableSession.id));
     if (saved) {
       try { return JSON.parse(saved) as CartItem[]; } catch {}
     }
@@ -111,10 +113,10 @@ export default function CustomerMenu({ restaurant, table, tableSession, categori
 
   // (cart is initialized from localStorage in the state initializer)
 
-  // Save cart to localStorage
+  // Save cart to sessionStorage
   const updateCart = (newCart: CartItem[]) => {
     setCart(newCart);
-    if (tableSession) localStorage.setItem(CART_KEY(tableSession.id), JSON.stringify(newCart));
+    if (tableSession) sessionStorage.setItem(CART_KEY(tableSession.id), JSON.stringify(newCart));
   };
 
   const addToCart = (item: CartItem) => {
@@ -129,7 +131,7 @@ export default function CustomerMenu({ restaurant, table, tableSession, categori
       } else {
         newCart = [...prev, item];
       }
-      if (tableSession) localStorage.setItem(CART_KEY(tableSession.id), JSON.stringify(newCart));
+      if (tableSession) sessionStorage.setItem(CART_KEY(tableSession.id), JSON.stringify(newCart));
       return newCart;
     });
     setSelectedItem(null);
@@ -250,7 +252,7 @@ export default function CustomerMenu({ restaurant, table, tableSession, categori
         {/* Category Nav */}
         {categories.length > 1 && (
           <div className="sticky top-0 z-30 bg-gray-50/95 backdrop-blur-sm px-4 pt-4 pb-2">
-            <div className="flex gap-2 overflow-x-auto pb-1 -mx-4 px-4">
+            <div className="flex gap-2 overflow-x-auto pb-1 -mx-4 px-4 scrollbar-hide">
               {categories.map((cat) => (
                 <button
                   key={cat.id}
@@ -270,12 +272,12 @@ export default function CustomerMenu({ restaurant, table, tableSession, categori
 
         {/* Food Type Filter */}
         <div className="px-4 pt-3">
-          <div className="flex gap-2">
+          <div className="flex gap-2 overflow-x-auto">
             {(["ALL", "VEG", "NON_VEG"] as const).map((f) => (
               <button
                 key={f}
                 onClick={() => setFoodFilter(f)}
-                className={`px-4 py-1.5 rounded-full text-sm font-medium border transition-all ${
+                className={`shrink-0 px-4 py-1.5 rounded-full text-sm font-medium border transition-all ${
                   foodFilter === f
                     ? f === "NON_VEG"
                       ? "bg-red-500 text-white border-red-500"
@@ -318,7 +320,7 @@ export default function CustomerMenu({ restaurant, table, tableSession, categori
                         <img
                           src={item.imageUrl}
                           alt={item.name}
-                          className="w-24 h-24 object-cover shrink-0"
+                          className="w-20 h-20 sm:w-24 sm:h-24 object-cover shrink-0"
                           loading="lazy"
                         />
                       )}
@@ -330,7 +332,7 @@ export default function CustomerMenu({ restaurant, table, tableSession, categori
                             ) : (
                               <span className={`w-3 h-3 rounded-sm border-2 flex-shrink-0 ${resolveType(item) === "NON_VEG" ? "border-red-500" : "border-green-500"}`} title={resolveType(item) === "NON_VEG" ? "Non-Veg" : "Veg"} />
                             )}
-                            <p className="font-semibold text-gray-900">{item.name}</p>
+                            <p className="font-semibold text-gray-900 truncate">{item.name}</p>
                           </div>
                           {item.description && (
                             <p className="text-xs text-gray-400 mt-0.5 line-clamp-2">{item.description}</p>

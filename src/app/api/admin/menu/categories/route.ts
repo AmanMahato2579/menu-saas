@@ -20,7 +20,7 @@ export async function GET(req: Request) {
 
   const categories = await prisma.category.findMany({
     where: { restaurantId },
-    orderBy: { createdAt: "asc" },
+    orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
   });
   return NextResponse.json(categories);
 }
@@ -34,7 +34,11 @@ export async function POST(req: Request) {
   if (!parsed.success) return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
 
   const category = await prisma.category.create({
-    data: { ...parsed.data, restaurantId },
+    data: {
+      ...parsed.data,
+      restaurantId,
+      sortOrder: await prisma.category.count({ where: { restaurantId } }),
+    },
   });
   return NextResponse.json(category, { status: 201 });
 }

@@ -59,16 +59,16 @@ export default function MenuItemModal({ item, currency, onClose, onAddToCart }: 
       <div className="absolute inset-0 bg-black/50" onClick={onClose} />
 
       {/* Sheet */}
-      <div className="relative w-full max-w-lg bg-white rounded-t-3xl sm:rounded-3xl shadow-2xl overflow-hidden max-h-[90vh] overflow-y-auto">
+      <div className="relative w-full max-w-lg bg-white rounded-t-3xl sm:rounded-3xl shadow-2xl overflow-hidden max-h-[90vh] overflow-y-auto overscroll-contain">
         {/* Image */}
         {item.imageUrl ? (
           <img
             src={item.imageUrl}
             alt={item.name}
-            className="w-full h-48 object-cover"
+            className="w-full h-40 sm:h-48 object-cover"
           />
         ) : (
-          <div className="w-full h-32 bg-gradient-to-r from-orange-100 to-amber-50 flex items-center justify-center text-5xl">
+          <div className="w-full h-28 sm:h-32 bg-gradient-to-r from-orange-100 to-amber-50 flex items-center justify-center text-5xl">
             🍽️
           </div>
 

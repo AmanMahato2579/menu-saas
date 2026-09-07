@@ -17,7 +17,13 @@ if (!authSecret && process.env.NODE_ENV === "production") {
 }
 
 export const authConfig: NextAuthConfig = {
-  session: { strategy: "jwt" },
+  // JWT strategy with a 30-day max age so owner/admin logins survive closing
+  // and reopening the app. Refresh while browsing keeps the session alive.
+  session: {
+    strategy: "jwt",
+    maxAge: 30 * 24 * 60 * 60, // 30 days
+    updateAge: 60 * 60 * 24, // refresh session once per day
+  },
   secret: authSecret,
   trustHost: true,
   debug: process.env.NODE_ENV === "development",
@@ -25,6 +31,19 @@ export const authConfig: NextAuthConfig = {
   pages: {
     signIn: "/login",
     error: "/login",
+  },
+
+  cookies: {
+    sessionToken: {
+      name: "authjs.session-token",
+      options: {
+        httpOnly: true,
+        sameSite: "lax",
+        path: "/",
+        secure: process.env.NODE_ENV === "production",
+        maxAge: 60 * 60 * 24 * 30, // 30 days
+      },
+    },
   },
 
   providers: [],

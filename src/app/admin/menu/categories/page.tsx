@@ -9,7 +9,7 @@ export default async function CategoriesPage() {
   const user = await requireRestaurantAdmin();
   const categories = await prisma.category.findMany({
     where: { restaurantId: user.restaurantId! },
-    orderBy: { createdAt: "asc" },
+    orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
     include: { _count: { select: { menuItems: true } } },
   });
 

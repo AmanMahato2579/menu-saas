@@ -96,6 +96,15 @@
   border-radius: 3px;
 }
 
+/* Hide scrollbar but keep scrollable (for category nav / filters) */
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
 /* ── Admin Sidebar ── */
 .admin-sidebar {
   background: linear-gradient(180deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
@@ -109,9 +118,11 @@
 .menu-card-hover {
   transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
-.menu-card-hover:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 8px 25px rgba(0,0,0,0.12);
+@media (hover: hover) {
+  .menu-card-hover:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(0,0,0,0.12);
+  }
 }
 
 /* ── Status badge colors ── */
@@ -130,6 +141,7 @@
   right: 0;
   z-index: 50;
   padding: 1rem;
+  padding-bottom: calc(1rem + env(safe-area-inset-bottom, 0px));
   background: linear-gradient(0deg, rgba(255,255,255,1) 60%, rgba(255,255,255,0) 100%);
 }
 
