@@ -472,7 +472,7 @@ export default function MenuPageClient({ categories, restaurantId }: Props) {
                               data-row-kind="item"
                               data-row-id={item.id}
                               data-row-parent={category.id}
-                              className={`relative flex items-center gap-4 px-6 py-4 hover:bg-gray-50/50 transition-colors border-b last:border-b-0 ${
+                              className={`relative flex flex-wrap items-center gap-x-3 gap-y-2 px-4 py-4 hover:bg-gray-50/50 transition-colors border-b last:border-b-0 sm:flex-nowrap sm:gap-4 sm:px-6 ${
                                 itemOver ? "bg-orange-50/70" : ""
                               }`}
                             >
@@ -496,7 +496,7 @@ export default function MenuPageClient({ categories, restaurantId }: Props) {
                               )}
 
                               {/* Info */}
-                              <div className="flex-1 min-w-0">
+                              <div className="flex-1 min-w-0 basis-full sm:basis-auto">
                                 <div className="flex items-center gap-2 flex-wrap">
                                   <p className="font-medium text-gray-900 text-sm">{item.name}</p>
                                   {item.hasSpicyOption && (
@@ -537,7 +537,7 @@ export default function MenuPageClient({ categories, restaurantId }: Props) {
                                           data-row-kind="variant"
                                           data-row-id={variant.id}
                                           data-row-parent={item.id}
-                                          className={`relative flex items-center gap-2 rounded-md border px-1.5 py-1 ${
+                                          className={`relative flex flex-wrap items-center gap-x-2 gap-y-1 rounded-md border px-2 py-1 ${
                                             variant.isAvailable
                                               ? "border-green-200 bg-green-50/50"
                                               : "border-gray-200 bg-gray-50"

@@ -202,7 +202,7 @@ export default function MenuItemForm({ categories, defaultCategoryId, item }: Pr
               </Label>
               {watchedVariants && watchedVariants.length > 0 && (
                 <span className="text-[11px] text-orange-600 font-medium bg-orange-50 px-2 py-0.5 rounded border border-orange-200">
-                  Auto-set from 1st variant if left empty
+                  Auto-set to highest variant price if left empty
                 </span>
               )}
             </div>

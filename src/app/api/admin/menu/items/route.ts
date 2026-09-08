@@ -56,10 +56,10 @@ export async function POST(req: Request) {
   });
   if (!category) return NextResponse.json({ error: "Category not found" }, { status: 404 });
 
-  // If variants exist and base price is 0, auto-fill base price with first variant's price
+  // If variants exist and base price is 0, auto-fill base price with highest variant price
   let finalPrice = parsed.data.price;
   if (parsed.data.variants.length > 0 && finalPrice <= 0) {
-    finalPrice = parsed.data.variants[0].price;
+    finalPrice = Math.max(...parsed.data.variants.map(v => v.price));
   }
 
   const item = await prisma.menuItem.create({

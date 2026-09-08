@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
+import Script from "next/script";
 import "./globals.css";
 import { ToastProvider } from "@/components/ui/toast";
 
@@ -31,7 +32,9 @@ export default function RootLayout({
     <html lang="en">
       <body className={inter.className}>
         <ToastProvider>{children}</ToastProvider>
-        <script
+        <Script
+          id="service-worker-registration"
+          strategy="afterInteractive"
           dangerouslySetInnerHTML={{
             __html: `
               if ('serviceWorker' in navigator) {

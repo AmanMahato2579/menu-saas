@@ -56,7 +56,7 @@ export async function PATCH(
   if (parsed.data.imageUrl === "") updateData.imageUrl = null;
 
   if (variants && variants.length > 0 && (!updateData.price || Number(updateData.price) <= 0)) {
-    updateData.price = variants[0].price;
+    updateData.price = Math.max(...variants.map(v => v.price));
   }
 
   // Sync variants in place: keep the same row ids whenever possible so that

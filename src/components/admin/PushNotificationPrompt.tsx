@@ -40,14 +40,14 @@ function pushIsSupported() {
 
 export default function PushNotificationPrompt({ language = "EN" }: { language?: string }) {
   const vapidPublicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
-  const [visible, setVisible] = React.useState(
-    () => Boolean(vapidPublicKey) && pushIsSupported() && Notification.permission === "default"
-  );
+  const [visible, setVisible] = React.useState(false);
   const [busy, setBusy] = React.useState(false);
 
   React.useEffect(() => {
     if (!vapidPublicKey || !pushIsSupported()) return;
-    if (Notification.permission === "granted") {
+    if (Notification.permission === "default") {
+      setVisible(true);
+    } else if (Notification.permission === "granted") {
       // Already granted earlier (or on a previous device session) — keep the
       // subscription alive silently, no need to prompt again.
       subscribeToPush(vapidPublicKey).catch(() => {});
