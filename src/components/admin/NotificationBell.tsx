@@ -172,6 +172,33 @@ export default function NotificationBell({ initialUnreadCount = 0, language = "E
     if (notification.link) router.push(notification.link);
   };
 
+  const rejectAttention = async () => {
+    if (!attentionNotification) return;
+    const notification = attentionNotification;
+    if (notification.type !== "NEW_ORDER") {
+      setAttentionNotification(null);
+      return;
+    }
+
+    const orderId = notification.link
+      ? new URLSearchParams(notification.link.split("?")[1] || "").get("orderId")
+      : null;
+    if (orderId) {
+      await fetch(`/api/admin/orders/${orderId}/status`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: "REJECTED" }),
+      }).catch(() => {});
+    }
+
+    await fetch(`/api/admin/notifications/${notification.id}`, { method: "PATCH" });
+    setUnreadCount((count) => Math.max(0, count - 1));
+    setNotifications((items) => items.map((item) => item.id === notification.id ? { ...item, read: true } : item));
+    setAttentionNotification(null);
+    setOpen(false);
+    router.refresh();
+  };
+
   return (
     <>
     <Popover.Root open={open} onOpenChange={setOpen}>
@@ -283,7 +310,22 @@ export default function NotificationBell({ initialUnreadCount = 0, language = "E
           <h2 className="mt-2 text-2xl font-extrabold text-gray-900">{attentionNotification.title}</h2>
           <p className="mt-3 text-lg text-gray-700">{attentionNotification.message}</p>
           <p className="mt-2 text-sm text-gray-500">{t(language, "Acknowledge this alert, then act on it now.", "यो सूचना स्वीकार गरेर अहिले नै कारबाही गर्नुहोस्।")}</p>
-          <button onClick={acceptAttention} className="mt-6 w-full rounded-xl bg-orange-500 px-5 py-4 text-base font-bold text-white hover:bg-orange-600">{t(language, "Accept & view details", "स्वीकार गरेर विवरण हेर्नुहोस्")}</button>
+          <div className="mt-6 flex gap-3">
+            {attentionNotification.type === "NEW_ORDER" && (
+              <button
+                onClick={rejectAttention}
+                className="rounded-xl border-2 border-red-300 px-4 py-4 text-base font-bold text-red-600 hover:bg-red-50 w-1/3"
+              >
+                {t(language, "Reject", "अस्वीकार गर्नुहोस्")}
+              </button>
+            )}
+            <button
+              onClick={acceptAttention}
+              className={`rounded-xl bg-orange-500 px-4 py-4 text-base font-bold text-white hover:bg-orange-600 ${attentionNotification.type === "NEW_ORDER" ? "w-2/3" : "w-full"}`}
+            >
+              {t(language, "Accept & view details", "स्वीकार गरेर विवरण हेर्नुहोस्")}
+            </button>
+          </div>
           <button onClick={() => setAttentionNotification(null)} aria-label="Minimize alert" className="mt-3 text-sm font-medium text-gray-500 hover:text-gray-700"><X className="mr-1 inline h-4 w-4" /> {t(language, "Minimize", "सानो बनाउनुहोस्")}</button>
         </div>
       </div>

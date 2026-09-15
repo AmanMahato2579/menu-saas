@@ -27,6 +27,7 @@ const itemSchema = z.object({
   isAvailable: z.boolean().default(true),
   hasSpicyOption: z.boolean().default(false),
   hasNoteOption: z.boolean().default(true),
+  requiresPreparation: z.boolean().default(true),
   ingredients: z.string().optional(),
   discountPercent: z.coerce.number().int().min(0).max(100).default(0),
   foodType: z.enum(FOOD_TYPES).default("NONE"),
@@ -64,6 +65,7 @@ interface MenuItem {
   isAvailable: boolean;
   hasSpicyOption: boolean;
   hasNoteOption: boolean;
+  requiresPreparation?: boolean;
   foodType: string | null;
   variants?: { id: string; name: string; price: string; foodType?: string | null }[];
 }
@@ -103,6 +105,7 @@ export default function MenuItemForm({ categories, defaultCategoryId, item }: Pr
       isAvailable: item?.isAvailable ?? true,
       hasSpicyOption: item?.hasSpicyOption ?? false,
       hasNoteOption: item?.hasNoteOption ?? true,
+      requiresPreparation: item?.requiresPreparation ?? true,
       foodType: normalizeFoodType(item?.foodType),
       variants: item?.variants?.map((variant) => ({
         name: variant.name,
@@ -116,6 +119,7 @@ export default function MenuItemForm({ categories, defaultCategoryId, item }: Pr
   const isAvailable = watch("isAvailable");
   const hasSpicyOption = watch("hasSpicyOption");
   const hasNoteOption = watch("hasNoteOption");
+  const requiresPreparation = watch("requiresPreparation");
   const foodType = watch("foodType");
   const watchedVariants = watch("variants");
 
@@ -385,6 +389,21 @@ export default function MenuItemForm({ categories, defaultCategoryId, item }: Pr
               <Switch
                 checked={hasNoteOption}
                 onCheckedChange={(val) => setValue("hasNoteOption", val)}
+              />
+            </div>
+
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-900">Needs Kitchen Preparation</p>
+                <p className="text-xs text-gray-400">
+                  {requiresPreparation
+                    ? "Requires cooking — staff serves it and it appears on the bill as cooking in progress."
+                    : "Ready-to-serve item — can be served instantly, no cooking needed."}
+                </p>
+              </div>
+              <Switch
+                checked={requiresPreparation}
+                onCheckedChange={(val) => setValue("requiresPreparation", val)}
               />
             </div>
           </div>

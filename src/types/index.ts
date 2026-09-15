@@ -1,6 +1,6 @@
-import { OrderStatus, UserRole, TableSessionStatus } from "@prisma/client";
+import { OrderStatus, UserRole, TableSessionStatus, OrderItemStatus, OrderSource } from "@prisma/client";
 
-export type { OrderStatus, UserRole, TableSessionStatus };
+export type { OrderStatus, UserRole, TableSessionStatus, OrderItemStatus, OrderSource };
 
 // Cart item stored in localStorage/state
 export interface CartItem {
@@ -42,6 +42,7 @@ export interface PublicMenuItem {
   isAvailable: boolean;
   hasSpicyOption: boolean;
   hasNoteOption: boolean;
+  requiresPreparation: boolean;
   displayOrder: number;
   categoryId: string;
 }

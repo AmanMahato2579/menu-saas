@@ -15,6 +15,7 @@ import {
   LogOut,
   ChefHat,
   Bell,
+  HandPlatter,
 } from "lucide-react";
 import InstallPWA from "./InstallPWA";
 
@@ -32,6 +33,7 @@ export default function AdminSidebar({ user, open = false, onNavigate, language 
 
   const navItems = [
     { href: "/admin", label: t(language, "Dashboard", "ड्यासबोर्ड"), icon: LayoutDashboard, exact: true },
+    { href: "/admin/service", label: t(language, "Take Order", "अर्डर लिनुहोस्"), icon: HandPlatter },
     { href: "/admin/orders", label: t(language, "Orders", "अर्डरहरू"), icon: ClipboardList },
     { href: "/admin/menu", label: t(language, "Menu", "मेनु"), icon: UtensilsCrossed },
     { href: "/admin/tables", label: t(language, "Tables", "टेबलहरू"), icon: QrCode },

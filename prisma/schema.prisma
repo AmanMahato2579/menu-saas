@@ -117,6 +117,7 @@ model MenuItem {
   isAvailable     Boolean           @default(true)
   hasSpicyOption  Boolean           @default(false)
   hasNoteOption   Boolean           @default(true)
+  requiresPreparation Boolean        @default(true)
   createdAt       DateTime          @default(now())
   updatedAt       DateTime          @updatedAt
   foodType        String?
@@ -151,6 +152,7 @@ model Order {
   restaurantId   String
   tableSessionId String
   customerToken  String
+  source         OrderSource  @default(CUSTOMER)
   status         OrderStatus  @default(PENDING)
   statusChangedAt DateTime    @default(now())
   subtotal       Decimal      @default(0) @db.Decimal(10, 2)
@@ -183,10 +185,16 @@ model OrderItem {
   subtotal          Decimal          @db.Decimal(10, 2)
   isSpicy           Boolean          @default(false)
   note              String?
+  status            OrderItemStatus  @default(NEW)
+  servedQuantity    Int              @default(0)
+  cancelledReason   String?
   createdAt         DateTime         @default(now())
   menuItem          MenuItem         @relation(fields: [menuItemId], references: [id])
   menuItemVariant   MenuItemVariant? @relation(fields: [menuItemVariantId], references: [id])
   order             Order            @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([orderId])
+  @@index([status])
 }
 
 model OrderSequence {
@@ -235,6 +243,18 @@ enum OrderStatus {
   READY
   COMPLETED
   REJECTED
+}
+
+enum OrderItemStatus {
+  NEW
+  PREPARING
+  SERVED
+  CANCELLED
+}
+
+enum OrderSource {
+  CUSTOMER
+  WAITER
 }
 
 enum TableSessionStatus {

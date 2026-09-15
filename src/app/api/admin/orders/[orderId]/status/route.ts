@@ -7,7 +7,10 @@ import { z } from "zod";
 import type { AdminUser } from "@/types";
 
 const statusSchema = z.object({
-  status: z.enum(["PENDING", "ACCEPTED", "PREPARING", "READY", "COMPLETED", "REJECTED"]),
+  // Order-level status now only drives the intake/acknowledgment lifecycle.
+  // Food progress is tracked per item (NEW → PREPARING → SERVED), so the
+  // legacy READY/COMPLETED values are intentionally no longer accepted here.
+  status: z.enum(["PENDING", "ACCEPTED", "REJECTED"]),
 });
 
 export async function PATCH(
@@ -51,6 +54,15 @@ export async function PATCH(
     where: { id: orderId },
     data: { status: parsed.data.status, statusChangedAt: new Date() },
   });
+
+  // Accepting an order also moves its pending items into the kitchen queue —
+  // acceptance and "start preparing" happen in one step.
+  if (parsed.data.status === "ACCEPTED") {
+    await prisma.orderItem.updateMany({
+      where: { orderId, status: "NEW" },
+      data: { status: "PREPARING" },
+    });
+  }
 
   if (parsed.data.status === "REJECTED") {
     const tableNumber = order.tableSession?.table?.tableNumber;

@@ -28,6 +28,9 @@ const STATUS_LABELS: Record<string, { en: string; nep: string }> = {
   READY: { en: "Ready", nep: "तयार" },
   COMPLETED: { en: "Completed", nep: "सम्पन्न" },
   REJECTED: { en: "Rejected", nep: "अस्वीकृत" },
+  NEW: { en: "New", nep: "नयाँ" },
+  SERVED: { en: "Served", nep: "सेवा भएको" },
+  CANCELLED: { en: "Cancelled", nep: "रद्द" },
 };
 
 export function orderStatusLabel(status: string, lang?: string | null): string {

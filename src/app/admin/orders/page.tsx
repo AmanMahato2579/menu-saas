@@ -1,21 +1,15 @@
 import { requireRestaurantAdmin } from "@/lib/auth-guard";
-import { getAdminOrders, getRestaurantById } from "@/lib/db";
-import { OrderStatus } from "@prisma/client";
+import { getAdminSessionOverview, getRestaurantById } from "@/lib/db";
 import { t } from "@/lib/i18n";
 import OrdersClient from "./OrdersClient";
-
-interface Props {
-  searchParams: Promise<{ status?: string }>;
-}
 
 export const metadata = { title: "Orders & Checkout – MenuQR Admin" };
 export const dynamic = "force-dynamic";
 
-export default async function OrdersPage({ searchParams }: Props) {
-  const params = await searchParams;
+export default async function OrdersPage() {
   const user = await requireRestaurantAdmin();
-  const [orders, restaurant] = await Promise.all([
-    getAdminOrders(user.restaurantId!, params.status as (OrderStatus | "ALL") | undefined),
+  const [sessions, restaurant] = await Promise.all([
+    getAdminSessionOverview(user.restaurantId!),
     getRestaurantById(user.restaurantId!),
   ]);
 
@@ -30,9 +24,7 @@ export default async function OrdersPage({ searchParams }: Props) {
         </p>
       </div>
       <OrdersClient
-        orders={JSON.parse(JSON.stringify(orders))}
-        currentStatus={params.status}
-        restaurantId={user.restaurantId!}
+        sessions={JSON.parse(JSON.stringify(sessions))}
         restaurant={JSON.parse(JSON.stringify(restaurant))}
       />
     </div>
