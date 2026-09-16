@@ -3,7 +3,6 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { QRCodeSVG } from "qrcode.react";
-import QRCode from "qrcode";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -118,12 +117,12 @@ function wrapText(
   lines.forEach((l, i) => ctx.fillText(l, x, startY + i * lineHeight));
 }
 
-async function generateQrPoster(qrUrl: string, tableNumber: number, restaurantName: string) {
+async function generateQrPoster(qrUrl: string, tableNumber: number, restaurantName: string, toDataURL: typeof import("qrcode").toDataURL) {
   const W = 1000;
   const H = 1400;
 
   // High-res QR code (pure black on a white card for maximum contrast/scannability).
-  const qrDataUrl = await QRCode.toDataURL(qrUrl, {
+  const qrDataUrl = await toDataURL(qrUrl, {
     margin: 2,
     width: 640,
     errorCorrectionLevel: "M",
@@ -270,7 +269,10 @@ export default function TablesClient({ tables, restaurantSlug, restaurantName, l
     setDownloadingId(table.id);
     try {
       const qrUrl = getQRUrl(table.qrToken);
-      const poster = await generateQrPoster(qrUrl, table.tableNumber, restaurantName);
+      const mod = (await import("qrcode")) as typeof import("qrcode") & { default?: typeof import("qrcode") };
+      const toDataURL = mod.toDataURL ?? mod.default?.toDataURL;
+      if (!toDataURL) throw new Error("Could not load QR library");
+      const poster = await generateQrPoster(qrUrl, table.tableNumber, restaurantName, toDataURL);
       if (!poster) throw new Error("Could not render QR poster");
       const link = document.createElement("a");
       link.download = `table-${table.tableNumber}-qr.png`;

@@ -2,6 +2,7 @@ import { notFound, redirect } from "next/navigation";
 import { getRestaurantBySlug, getTableByToken, getActiveSession } from "@/lib/db";
 import { prisma } from "@/lib/prisma";
 import OrdersPageClient from "./OrdersPageClient";
+import { validBrandColor } from "@/lib/brand";
 
 interface Props {
   params: Promise<{ restaurantSlug: string; tableToken: string }>;
@@ -26,11 +27,13 @@ export default async function CustomerOrdersPage({ params }: Props) {
   });
 
   return (
-    <OrdersPageClient
-      restaurant={JSON.parse(JSON.stringify(restaurant))}
-      table={JSON.parse(JSON.stringify(table))}
-      orders={JSON.parse(JSON.stringify(orders))}
-      tableSession={JSON.parse(JSON.stringify(session))}
-    />
+    <div data-brand={validBrandColor(restaurant.brandColor)}>
+      <OrdersPageClient
+        restaurant={JSON.parse(JSON.stringify(restaurant))}
+        table={JSON.parse(JSON.stringify(table))}
+        orders={JSON.parse(JSON.stringify(orders))}
+        tableSession={JSON.parse(JSON.stringify(session))}
+      />
+    </div>
   );
 }

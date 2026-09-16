@@ -6,16 +6,18 @@ import type { AdminUser } from "@/types";
 import AdminSidebar from "./AdminSidebar";
 import AdminHeader from "./AdminHeader";
 import PushNotificationPrompt from "./PushNotificationPrompt";
+import { validBrandColor } from "@/lib/brand";
 
 interface AdminShellProps {
   user: AdminUser;
   initialUnreadCount: number;
   language?: string;
   bookingsEnabled?: boolean;
+  brandColor?: string;
   children: React.ReactNode;
 }
 
-export default function AdminShell({ user, initialUnreadCount, language = "EN", bookingsEnabled = false, children }: AdminShellProps) {
+export default function AdminShell({ user, initialUnreadCount, language = "EN", bookingsEnabled = false, brandColor = "orange", children }: AdminShellProps) {
   const pathname = usePathname();
   const [openedForPath, setOpenedForPath] = useState<string | null>(null);
   const sidebarOpen = openedForPath === pathname;
@@ -36,7 +38,7 @@ export default function AdminShell({ user, initialUnreadCount, language = "EN", 
   }, [sidebarOpen]);
 
   return (
-    <div className="flex h-screen bg-gray-50 overflow-hidden">
+    <div data-brand={validBrandColor(brandColor)} className="flex h-screen bg-gray-50 overflow-hidden">
       {sidebarOpen && (
         <div
           className="fixed inset-0 z-40 bg-gray-950/60 md:hidden"

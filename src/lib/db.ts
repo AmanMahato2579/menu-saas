@@ -894,13 +894,20 @@ export async function updateBookingStatus(
   restaurantId: string,
   status: BookingStatus
 ): Promise<{ ok: true } | { ok: false; error: string }> {
+  const allowed: Record<BookingStatus, BookingStatus[]> = {
+    PENDING: ["ACCEPTED", "REJECTED", "CANCELLED"],
+    ACCEPTED: ["REJECTED", "COMPLETED", "CANCELLED"],
+    REJECTED: [],
+    COMPLETED: [],
+    CANCELLED: [],
+  };
   const existing = await prisma.booking.findFirst({
     where: { id: bookingId, restaurantId },
-    select: { id: true },
+    select: { id: true, status: true },
   });
   if (!existing) return { ok: false, error: "Booking not found" };
-  const editable: BookingStatus[] = ["PENDING", "ACCEPTED"];
-  if (!editable.includes(status)) {
+  if (existing.status === status) return { ok: false, error: "Booking is already in that status" };
+  if (!allowed[existing.status].includes(status)) {
     return { ok: false, error: "Cannot move a booking to that status" };
   }
   await prisma.booking.update({ where: { id: bookingId }, data: { status } });

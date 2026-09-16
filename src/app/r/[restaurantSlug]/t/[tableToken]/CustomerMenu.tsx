@@ -11,6 +11,7 @@ import { useCustomerLanguage, LanguageToggle } from "@/hooks/use-customer-lang";
 import { ShoppingCart, BellRing, Loader2, AlertCircle, Receipt, ClipboardList, Phone, Copy, Check, CalendarCheck } from "lucide-react";
 import type { CartItem } from "@/types";
 import { loadCart, saveCart } from "@/lib/customer-storage";
+import { validBrandColor } from "@/lib/brand";
 
 interface Restaurant {
   id: string;
@@ -23,6 +24,7 @@ interface Restaurant {
   phone?: string | null;
   language?: string;
   bookingsEnabled?: boolean;
+  brandColor?: string;
 }
 
 interface MenuItem {
@@ -199,7 +201,7 @@ export default function CustomerMenu({ restaurant, table, tableSession, categori
   };
 
   if (!tableSession) return (
-    <div className="min-h-screen bg-orange-50 flex items-center justify-center p-5">
+    <div data-brand={validBrandColor(restaurant.brandColor)} className="min-h-screen bg-orange-50 flex items-center justify-center p-5">
       <div className="max-w-sm w-full bg-white rounded-3xl shadow-xl p-7 text-center">
         <div className="text-4xl mb-3">🍽️</div>
         <h1 className="text-2xl font-bold">{t(lang, `Welcome to ${restaurant.name}`, `${restaurant.name} मा स्वागत छ`)}</h1>
@@ -226,7 +228,7 @@ export default function CustomerMenu({ restaurant, table, tableSession, categori
   );
 
   if (sessionEnded) return (
-    <div className="min-h-screen bg-orange-50 flex items-center justify-center p-5">
+    <div data-brand={validBrandColor(restaurant.brandColor)} className="min-h-screen bg-orange-50 flex items-center justify-center p-5">
       <div className="max-w-sm w-full bg-white rounded-3xl shadow-xl p-7 text-center">
         <div className="w-16 h-16 rounded-2xl bg-orange-100 flex items-center justify-center mx-auto mb-4">
           <AlertCircle className="w-8 h-8 text-orange-500" />
@@ -244,7 +246,7 @@ export default function CustomerMenu({ restaurant, table, tableSession, categori
   );
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-32">
+    <div data-brand={validBrandColor(restaurant.brandColor)} className="min-h-screen bg-gray-50 pb-32">
       {/* Hero Header */}
       <div className="menu-hero-gradient text-white px-4 pt-8 pb-6 relative">
         <div className="max-w-lg mx-auto">

@@ -13,6 +13,7 @@ export default async function AdminLayout({
   let unreadCount = 0;
   let language = "EN";
   let bookingsEnabled = false;
+  let brandColor = "orange";
   if (user.restaurantId) {
     const [notifCount, restaurant] = await Promise.all([
       prisma.notification.count({
@@ -20,18 +21,19 @@ export default async function AdminLayout({
       }),
       prisma.restaurant.findUnique({
         where: { id: user.restaurantId },
-        select: { language: true, bookingsEnabled: true },
+        select: { language: true, bookingsEnabled: true, brandColor: true },
       }),
     ]);
     unreadCount = notifCount;
     language = restaurant?.language ?? "EN";
     bookingsEnabled = restaurant?.bookingsEnabled ?? false;
+    brandColor = restaurant?.brandColor ?? "orange";
   }
 
   return (
     <>
       <AuthStateWatcher />
-      <AdminShell user={user} initialUnreadCount={unreadCount} language={language} bookingsEnabled={bookingsEnabled}>
+      <AdminShell user={user} initialUnreadCount={unreadCount} language={language} bookingsEnabled={bookingsEnabled} brandColor={brandColor}>
         {children}
       </AdminShell>
     </>

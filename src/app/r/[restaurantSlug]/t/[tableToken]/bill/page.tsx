@@ -1,6 +1,7 @@
 import { notFound, redirect } from "next/navigation";
 import { getRestaurantBySlug, getTableByToken, getActiveSession, getSessionBill } from "@/lib/db";
 import BillClient from "./BillClient";
+import { validBrandColor } from "@/lib/brand";
 
 interface Props {
   params: Promise<{ restaurantSlug: string; tableToken: string }>;
@@ -21,23 +22,25 @@ export default async function BillPage({ params }: Props) {
   const baseUrl = `/r/${restaurantSlug}/t/${tableToken}`;
 
   return (
-    <BillClient
-      restaurant={{
-        id: restaurant.id,
-        name: restaurant.name,
-        logoUrl: restaurant.logoUrl,
-        currency: restaurant.currency,
-        language: restaurant.language,
-        taxRate: restaurant.taxRate ? Number(restaurant.taxRate) : 0,
-        serviceChargeRate: restaurant.serviceChargeRate ? Number(restaurant.serviceChargeRate) : 0,
-      }}
-      table={{ tableNumber: table.tableNumber }}
-      orders={JSON.parse(JSON.stringify(orders))}
-      subtotal={Number(subtotal)}
-      taxAmount={Number(taxAmount)}
-      serviceChargeAmount={Number(serviceChargeAmount)}
-      total={Number(total)}
-      baseUrl={baseUrl}
-    />
+    <div data-brand={validBrandColor(restaurant.brandColor)}>
+      <BillClient
+        restaurant={{
+          id: restaurant.id,
+          name: restaurant.name,
+          logoUrl: restaurant.logoUrl,
+          currency: restaurant.currency,
+          language: restaurant.language,
+          taxRate: restaurant.taxRate ? Number(restaurant.taxRate) : 0,
+          serviceChargeRate: restaurant.serviceChargeRate ? Number(restaurant.serviceChargeRate) : 0,
+        }}
+        table={{ tableNumber: table.tableNumber }}
+        orders={JSON.parse(JSON.stringify(orders))}
+        subtotal={Number(subtotal)}
+        taxAmount={Number(taxAmount)}
+        serviceChargeAmount={Number(serviceChargeAmount)}
+        total={Number(total)}
+        baseUrl={baseUrl}
+      />
+    </div>
   );
 }
