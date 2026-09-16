@@ -28,6 +28,9 @@ const STATUS_LABELS: Record<string, { en: string; nep: string }> = {
   READY: { en: "Ready", nep: "तयार" },
   COMPLETED: { en: "Completed", nep: "सम्पन्न" },
   REJECTED: { en: "Rejected", nep: "अस्वीकृत" },
+  NEW: { en: "New", nep: "नयाँ" },
+  SERVED: { en: "Served", nep: "सेवा भएको" },
+  CANCELLED: { en: "Cancelled", nep: "रद्द" },
 };
 
 export function orderStatusLabel(status: string, lang?: string | null): string {
@@ -111,4 +114,26 @@ export function orderRejectedMessage(
   }
   const loc = tableNumber ? `Table ${tableNumber} — ` : "";
   return `${loc}${items}. Please inform the customer why this order was rejected.`;
+}
+
+export function newBookingTitle(lang?: string | null, contactName?: string | null): string {
+  const who = contactName?.trim() || t(lang, "Guest", "पाहुना");
+  return t(lang, `New booking — ${who}`, `नयाँ बुकिङ — ${who}`);
+}
+
+export function newBookingMessage(
+  lang?: string | null,
+  serviceName?: string,
+  bookingDate?: string,
+  startMinutes?: number,
+  durationMinutes?: number,
+  guests?: number
+): string {
+  const label = startMinutes !== undefined && startMinutes !== null ? `${String(Math.floor(startMinutes / 60)).padStart(2, "0")}:${String(startMinutes % 60).padStart(2, "0")}` : "??:??";
+  const duration = durationMinutes ? ` (${durationMinutes / 60}h)` : "";
+  const people = guests ? ` · ${guests} ${t(lang, "guests", "जना")}` : "";
+  if (isNepali(lang)) {
+    return `${serviceName ?? ""} — ${bookingDate} ${label}${duration}.${people} बुकिङ गरेका छन्।`;
+  }
+return `${serviceName ?? "Service"} — ${bookingDate} at ${label}${duration}.${people}`;
 }

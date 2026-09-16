@@ -12,6 +12,7 @@ const itemSchema = z.object({
   isAvailable: z.boolean().default(true),
   hasSpicyOption: z.boolean().default(false),
   hasNoteOption: z.boolean().default(true),
+  requiresPreparation: z.boolean().default(true),
   ingredients: z.string().optional().nullable(),
   discountPercent: z.coerce.number().int().min(0).max(100).default(0),
   variants: z.array(z.object({

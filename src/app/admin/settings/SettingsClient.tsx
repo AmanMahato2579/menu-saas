@@ -4,6 +4,7 @@ import { useForm } from "react-hook-form";
 import type { Resolver } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
+import { useRouter } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,8 +12,10 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/components/ui/toast";
 import { Switch } from "@/components/ui/switch";
-import { Loader2, Save, Percent, Languages } from "lucide-react";
-import { LANGUAGE_OPTIONS } from "@/lib/i18n";
+import { Loader2, Save, Percent, Languages, CalendarCheck, Palette, Check } from "lucide-react";
+import { LANGUAGE_OPTIONS, t } from "@/lib/i18n";
+import { BRAND_PALETTES } from "@/lib/brand";
+import { cn } from "@/lib/utils";
 
 const settingsSchema = z.object({
   name: z.string().min(1, "Name is required"),
@@ -27,6 +30,8 @@ const settingsSchema = z.object({
   isTaxEnabled: z.boolean().default(false),
   serviceChargeRate: z.coerce.number().min(0).max(100).default(0),
   isServiceChargeEnabled: z.boolean().default(false),
+  bookingsEnabled: z.boolean().default(false),
+  brandColor: z.string().default("orange"),
 });
 
 type SettingsForm = z.infer<typeof settingsSchema>;
@@ -46,6 +51,8 @@ interface Restaurant {
   isTaxEnabled: boolean;
   serviceChargeRate: number;
   isServiceChargeEnabled: boolean;
+  bookingsEnabled: boolean;
+  brandColor: string;
 }
 
 interface Props {
@@ -53,7 +60,9 @@ interface Props {
 }
 
 export default function SettingsClient({ restaurant }: Props) {
+  const router = useRouter();
   const { toast } = useToast();
+  const lang = restaurant.language ?? "EN";
   const { register, handleSubmit, watch, setValue, formState: { errors, isSubmitting } } = useForm<SettingsForm>({
     resolver: zodResolver(settingsSchema) as unknown as Resolver<SettingsForm>,
     defaultValues: {
@@ -69,11 +78,15 @@ export default function SettingsClient({ restaurant }: Props) {
       isTaxEnabled: restaurant.isTaxEnabled ?? false,
       serviceChargeRate: restaurant.serviceChargeRate ?? 0,
       isServiceChargeEnabled: restaurant.isServiceChargeEnabled ?? false,
+      bookingsEnabled: restaurant.bookingsEnabled ?? false,
+      brandColor: restaurant.brandColor ?? "orange",
     },
   });
 
   const isTaxEnabled = watch("isTaxEnabled");
   const isServiceChargeEnabled = watch("isServiceChargeEnabled");
+  const bookingsEnabled = watch("bookingsEnabled");
+  const brandColor = watch("brandColor");
 
   const onSubmit = async (data: SettingsForm) => {
     const res = await fetch("/api/admin/settings", {
@@ -83,9 +96,16 @@ export default function SettingsClient({ restaurant }: Props) {
     });
     if (res.ok) {
       toast({ title: "Settings saved!", variant: "success" });
+      router.refresh();
     } else {
       toast({ title: "Error saving settings", variant: "destructive" });
     }
+  };
+
+  const pickBrandColor = (key: string) => {
+    setValue("brandColor", key, { shouldDirty: true });
+    document.querySelector<HTMLElement>("[data-brand]")?.setAttribute("data-brand", key);
+    document.documentElement.dataset.brand = key;
   };
 
   return (
@@ -179,6 +199,68 @@ export default function SettingsClient({ restaurant }: Props) {
                 <Switch checked={isServiceChargeEnabled} onCheckedChange={(val) => setValue("isServiceChargeEnabled", val)} />
               </div>
               {isServiceChargeEnabled && <div className="space-y-1.5 mt-3"><Label htmlFor="serviceChargeRate">Service Charge (%)</Label><Input id="serviceChargeRate" type="number" step="0.5" min="0" max="100" {...register("serviceChargeRate")} className="max-w-xs" /></div>}
+            </div>
+
+            <div className="sm:col-span-2 pt-3 border-t">
+              <h3 className="text-sm font-semibold text-gray-700 flex items-center gap-1.5 mb-3">
+                <CalendarCheck className="w-4 h-4 text-orange-500" /> Booking Settings
+              </h3>
+              <div className="flex items-center justify-between p-3 bg-gray-50 rounded-xl mb-3">
+                <div>
+                  <p className="text-sm font-medium text-gray-700">Enable Bookings</p>
+                  <p className="text-xs text-gray-400 mt-0.5">Lets customers book services (rooms, pool, adventures) from the menu</p>
+                </div>
+                <Switch
+                  checked={bookingsEnabled}
+                  onCheckedChange={(val) => setValue("bookingsEnabled", val)}
+                />
+              </div>
+              {bookingsEnabled && (
+                <p className="text-xs text-gray-400">
+                  Super-admin has approved this feature. Manage your bookable services and incoming requests under Bookings in the sidebar.
+                </p>
+              )}
+            </div>
+
+            <div className="sm:col-span-2 pt-3 border-t">
+              <h3 className="text-sm font-semibold text-gray-700 flex items-center gap-1.5 mb-1">
+                <Palette className="w-4 h-4 text-orange-500" /> {t(lang, "Brand Color", "ब्रान्ड रंग")}
+              </h3>
+              <p className="text-xs text-gray-400 mb-3">
+                {t(lang, "Pick the accent color. It flows through the admin panel and the customer menu — buttons, highlights and the menu banner.", "एक्सेन्ट रंग छनोट गर्नुहोस्। यो एडमिन प्यानल र ग्राहक मेनु — बटन, हाइलाइट र मेनु ब्यानरमा लागू हुन्छ।")}
+              </p>
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
+                {BRAND_PALETTES.map((palette) => {
+                  const selected = brandColor === palette.key;
+                  return (
+                    <button
+                      key={palette.key}
+                      type="button"
+                      onClick={() => pickBrandColor(palette.key)}
+                      aria-pressed={selected}
+                      className={cn(
+                        "group relative flex items-center gap-2 rounded-xl border px-3 py-2 text-left transition-all",
+                        selected ? "border-gray-900 ring-2 ring-gray-900/10 shadow-sm" : "border-gray-200 hover:border-gray-300"
+                      )}
+                    >
+                      <span className="flex rounded-lg overflow-hidden shrink-0 border border-black/10" aria-hidden="true">
+                        {palette.scale.slice(3, 8).map((hex) => (
+                          <span key={hex} className="w-3 h-6" style={{ backgroundColor: hex }} />
+                        ))}
+                      </span>
+                      <span className="min-w-0">
+                        <span className="block text-sm font-medium text-gray-800 truncate">{palette.label}</span>
+                        <span className="block h-1.5 w-full rounded-full mt-1" style={{ backgroundColor: palette.primary }} />
+                      </span>
+                      {selected && (
+                        <span className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-gray-900 text-white flex items-center justify-center">
+                          <Check className="w-3 h-3" />
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
           </div>
 

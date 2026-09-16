@@ -110,9 +110,226 @@
   background: linear-gradient(180deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
 }
 
+/* ── Brand theme ───────────────────────────────────────────────────────────
+   Each restaurant picks a palette (Restaurant.brandColor). The palette is
+   applied as a `data-brand` attribute on the app shell; it remaps the design
+   tokens (primary color, focus ring + the full Tailwind orange scale) through
+   inherited CSS custom properties, so the whole admin + customer UI follows
+   the restaurant's brand while the layout stays identical. */
+
+.brand-grad {
+  background: linear-gradient(
+    135deg,
+    color-mix(in oklab, var(--color-primary) 88%, white 0%) 0%,
+    color-mix(in oklab, var(--color-primary) 74%, black 6%) 55%,
+    color-mix(in oklab, var(--color-primary) 58%, white 20%) 100%
+  );
+}
+
+[data-brand="orange"] {
+  --color-primary: #f97316;
+  --color-ring: #f97316;
+  --color-orange-50: #fff7ed;
+  --color-orange-100: #ffedd5;
+  --color-orange-200: #fed7aa;
+  --color-orange-300: #fdba74;
+  --color-orange-400: #fb923c;
+  --color-orange-500: #f97316;
+  --color-orange-600: #ea580c;
+  --color-orange-700: #c2410c;
+  --color-orange-800: #9a3412;
+  --color-orange-900: #7c2d12;
+  --color-orange-950: #431407;
+}
+[data-brand="amber"] {
+  --color-primary: #f59e0b;
+  --color-ring: #f59e0b;
+  --color-orange-50: #fffbeb;
+  --color-orange-100: #fef3c7;
+  --color-orange-200: #fde68a;
+  --color-orange-300: #fcd34d;
+  --color-orange-400: #fbbf24;
+  --color-orange-500: #f59e0b;
+  --color-orange-600: #d97706;
+  --color-orange-700: #b45309;
+  --color-orange-800: #92400e;
+  --color-orange-900: #78350f;
+  --color-orange-950: #451a03;
+}
+[data-brand="red"] {
+  --color-primary: #ef4444;
+  --color-ring: #ef4444;
+  --color-orange-50: #fef2f2;
+  --color-orange-100: #fee2e2;
+  --color-orange-200: #fecaca;
+  --color-orange-300: #fca5a5;
+  --color-orange-400: #f87171;
+  --color-orange-500: #ef4444;
+  --color-orange-600: #dc2626;
+  --color-orange-700: #b91c1c;
+  --color-orange-800: #991b1b;
+  --color-orange-900: #7f1d1d;
+  --color-orange-950: #450a0a;
+}
+[data-brand="rose"] {
+  --color-primary: #f43f5e;
+  --color-ring: #f43f5e;
+  --color-orange-50: #fff1f2;
+  --color-orange-100: #ffe4e6;
+  --color-orange-200: #fecdd3;
+  --color-orange-300: #fda4af;
+  --color-orange-400: #fb7185;
+  --color-orange-500: #f43f5e;
+  --color-orange-600: #e11d48;
+  --color-orange-700: #be123c;
+  --color-orange-800: #9f1239;
+  --color-orange-900: #881337;
+  --color-orange-950: #4c0519;
+}
+[data-brand="pink"] {
+  --color-primary: #ec4899;
+  --color-ring: #ec4899;
+  --color-orange-50: #fdf2f8;
+  --color-orange-100: #fce7f3;
+  --color-orange-200: #fbcfe8;
+  --color-orange-300: #f9a8d4;
+  --color-orange-400: #f472b6;
+  --color-orange-500: #ec4899;
+  --color-orange-600: #db2777;
+  --color-orange-700: #be185d;
+  --color-orange-800: #9d174d;
+  --color-orange-900: #831843;
+  --color-orange-950: #500724;
+}
+[data-brand="purple"] {
+  --color-primary: #a855f7;
+  --color-ring: #a855f7;
+  --color-orange-50: #faf5ff;
+  --color-orange-100: #f3e8ff;
+  --color-orange-200: #e9d5ff;
+  --color-orange-300: #d8b4fe;
+  --color-orange-400: #c084fc;
+  --color-orange-500: #a855f7;
+  --color-orange-600: #9333ea;
+  --color-orange-700: #7e22ce;
+  --color-orange-800: #6b21a8;
+  --color-orange-900: #581c87;
+  --color-orange-950: #3b0764;
+}
+[data-brand="violet"] {
+  --color-primary: #8b5cf6;
+  --color-ring: #8b5cf6;
+  --color-orange-50: #f5f3ff;
+  --color-orange-100: #ede9fe;
+  --color-orange-200: #ddd6fe;
+  --color-orange-300: #c4b5fd;
+  --color-orange-400: #a78bfa;
+  --color-orange-500: #8b5cf6;
+  --color-orange-600: #7c3aed;
+  --color-orange-700: #6d28d9;
+  --color-orange-800: #5b21b6;
+  --color-orange-900: #4c1d95;
+  --color-orange-950: #2e1065;
+}
+[data-brand="indigo"] {
+  --color-primary: #6366f1;
+  --color-ring: #6366f1;
+  --color-orange-50: #eef2ff;
+  --color-orange-100: #e0e7ff;
+  --color-orange-200: #c7d2fe;
+  --color-orange-300: #a5b4fc;
+  --color-orange-400: #818cf8;
+  --color-orange-500: #6366f1;
+  --color-orange-600: #4f46e5;
+  --color-orange-700: #4338ca;
+  --color-orange-800: #3730a3;
+  --color-orange-900: #312e81;
+  --color-orange-950: #1e1b4b;
+}
+[data-brand="blue"] {
+  --color-primary: #3b82f6;
+  --color-ring: #3b82f6;
+  --color-orange-50: #eff6ff;
+  --color-orange-100: #dbeafe;
+  --color-orange-200: #bfdbfe;
+  --color-orange-300: #93c5fd;
+  --color-orange-400: #60a5fa;
+  --color-orange-500: #3b82f6;
+  --color-orange-600: #2563eb;
+  --color-orange-700: #1d4ed8;
+  --color-orange-800: #1e40af;
+  --color-orange-900: #1e3a8a;
+  --color-orange-950: #172554;
+}
+[data-brand="sky"] {
+  --color-primary: #0ea5e9;
+  --color-ring: #0ea5e9;
+  --color-orange-50: #f0f9ff;
+  --color-orange-100: #e0f2fe;
+  --color-orange-200: #bae6fd;
+  --color-orange-300: #7dd3fc;
+  --color-orange-400: #38bdf8;
+  --color-orange-500: #0ea5e9;
+  --color-orange-600: #0284c7;
+  --color-orange-700: #0369a1;
+  --color-orange-800: #075985;
+  --color-orange-900: #0c4a6e;
+  --color-orange-950: #082f49;
+}
+[data-brand="teal"] {
+  --color-primary: #14b8a6;
+  --color-ring: #14b8a6;
+  --color-orange-50: #f0fdfa;
+  --color-orange-100: #ccfbf1;
+  --color-orange-200: #99f6e4;
+  --color-orange-300: #5eead4;
+  --color-orange-400: #2dd4bf;
+  --color-orange-500: #14b8a6;
+  --color-orange-600: #0d9488;
+  --color-orange-700: #0f766e;
+  --color-orange-800: #115e59;
+  --color-orange-900: #134e4a;
+  --color-orange-950: #042f2e;
+}
+[data-brand="emerald"] {
+  --color-primary: #10b981;
+  --color-ring: #10b981;
+  --color-orange-50: #ecfdf5;
+  --color-orange-100: #d1fae5;
+  --color-orange-200: #a7f3d0;
+  --color-orange-300: #6ee7b7;
+  --color-orange-400: #34d399;
+  --color-orange-500: #10b981;
+  --color-orange-600: #059669;
+  --color-orange-700: #047857;
+  --color-orange-800: #065f46;
+  --color-orange-900: #064e3b;
+  --color-orange-950: #022c22;
+}
+[data-brand="green"] {
+  --color-primary: #22c55e;
+  --color-ring: #22c55e;
+  --color-orange-50: #f0fdf4;
+  --color-orange-100: #dcfce7;
+  --color-orange-200: #bbf7d0;
+  --color-orange-300: #86efac;
+  --color-orange-400: #4ade80;
+  --color-orange-500: #22c55e;
+  --color-orange-600: #16a34a;
+  --color-orange-700: #15803d;
+  --color-orange-800: #166534;
+  --color-orange-900: #14532d;
+  --color-orange-950: #052e16;
+}
+
 /* ── Customer Menu ── */
 .menu-hero-gradient {
-  background: linear-gradient(135deg, #ff6b35 0%, #f7931e 50%, #ffcd3c 100%);
+  background: linear-gradient(
+    135deg,
+    color-mix(in oklab, var(--color-primary) 86%, black 4%) 0%,
+    color-mix(in oklab, var(--color-primary) 72%, black 8%) 50%,
+    color-mix(in oklab, var(--color-primary) 58%, white 18%) 100%
+  );
 }
 
 .menu-card-hover {

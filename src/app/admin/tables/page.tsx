@@ -8,21 +8,23 @@ export const dynamic = "force-dynamic";
 
 export default async function TablesPage() {
   const user = await requireRestaurantAdmin();
-  const restaurant = await prisma.restaurant.findUnique({
-    where: { id: user.restaurantId! },
-  });
-  const tables = await prisma.table.findMany({
-    where: { restaurantId: user.restaurantId! },
-    orderBy: { tableNumber: "asc" },
-    include: {
-      _count: {
-        select: {
-          tableSessions: { where: { status: "ACTIVE" } },
+  const [restaurant, tables] = await Promise.all([
+    prisma.restaurant.findUnique({
+      where: { id: user.restaurantId! },
+    }),
+    prisma.table.findMany({
+      where: { restaurantId: user.restaurantId! },
+      orderBy: { tableNumber: "asc" },
+      include: {
+        _count: {
+          select: {
+            tableSessions: { where: { status: "ACTIVE" } },
+          },
         },
+        tableSessions: { where: { status: "ACTIVE" }, select: { id: true, customerName: true, applyTax: true, applyServiceCharge: true } },
       },
-      tableSessions: { where: { status: "ACTIVE" }, select: { id: true, customerName: true, applyTax: true, applyServiceCharge: true } },
-    },
-  });
+    }),
+  ]);
 
   const lang = restaurant?.language ?? "EN";
 

@@ -1,6 +1,7 @@
 import { notFound, redirect } from "next/navigation";
 import { getRestaurantBySlug, getTableByToken, getActiveSession } from "@/lib/db";
 import CartClient from "./CartClient";
+import { validBrandColor } from "@/lib/brand";
 
 interface Props {
   params: Promise<{ restaurantSlug: string; tableToken: string }>;
@@ -18,23 +19,26 @@ export default async function CartPage({ params }: Props) {
   if (!session) redirect(`/r/${restaurantSlug}/t/${tableToken}`);
 
   return (
-    <CartClient
-      restaurant={{
-        id: restaurant.id,
-        name: restaurant.name,
-        slug: restaurant.slug,
-        currency: restaurant.currency,
-        isTaxEnabled: restaurant.isTaxEnabled,
-        taxRate: Number(restaurant.taxRate),
-        isServiceChargeEnabled: restaurant.isServiceChargeEnabled,
-        serviceChargeRate: Number(restaurant.serviceChargeRate),
-      }}
-      table={{ id: table.id, tableNumber: table.tableNumber }}
-      tableSession={{
-        id: session.id,
-        applyTax: session.applyTax,
-        applyServiceCharge: session.applyServiceCharge,
-      }}
-    />
+    <div data-brand={validBrandColor(restaurant.brandColor)}>
+      <CartClient
+        restaurant={{
+          id: restaurant.id,
+          name: restaurant.name,
+          slug: restaurant.slug,
+          currency: restaurant.currency,
+          isTaxEnabled: restaurant.isTaxEnabled,
+          taxRate: Number(restaurant.taxRate),
+          isServiceChargeEnabled: restaurant.isServiceChargeEnabled,
+          serviceChargeRate: Number(restaurant.serviceChargeRate),
+          language: restaurant.language,
+        }}
+        table={{ id: table.id, tableNumber: table.tableNumber }}
+        tableSession={{
+          id: session.id,
+          applyTax: session.applyTax,
+          applyServiceCharge: session.applyServiceCharge,
+        }}
+      />
+    </div>
   );
 }

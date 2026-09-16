@@ -24,25 +24,27 @@ model User {
 }
 
 model Restaurant {
-  id                     String         @id @default(cuid())
+  id                     String             @id @default(cuid())
   name                   String
-  slug                   String         @unique
+  slug                   String             @unique
   description            String?
   logoUrl                String?
   address                String?
   phone                  String?
-  currency               String         @default("Rs.")
+  currency               String             @default("Rs.")
   openingHours           String?
-  language               String         @default("EN")
-  taxRate                Decimal        @default(0) @db.Decimal(5, 2)
-  isTaxEnabled           Boolean        @default(false)
-  serviceChargeRate      Decimal        @default(0) @db.Decimal(5, 2)
-  isServiceChargeEnabled Boolean        @default(false)
-  tableLimit             Int            @default(20)
-  isActive               Boolean        @default(true)
-  createdAt              DateTime       @default(now())
-  updatedAt              DateTime       @updatedAt
-  plan                   String         @default("STAR")
+  language               String             @default("EN")
+  taxRate                Decimal            @default(0) @db.Decimal(5, 2)
+  isTaxEnabled           Boolean            @default(false)
+  serviceChargeRate      Decimal            @default(0) @db.Decimal(5, 2)
+  isServiceChargeEnabled Boolean            @default(false)
+  tableLimit             Int                @default(20)
+  isActive               Boolean            @default(true)
+  bookingsEnabled        Boolean            @default(false)
+  brandColor             String             @default("orange")
+  createdAt              DateTime           @default(now())
+  updatedAt              DateTime           @updatedAt
+  plan                   String             @default("STAR")
   categories             Category[]
   menuItems              MenuItem[]
   notifications          Notification[]
@@ -51,6 +53,8 @@ model Restaurant {
   tables                 Table[]
   tableSessions          TableSession[]
   users                  User[]
+  bookableServices       BookableService[]
+  bookings               Booking[]
 
   @@index([slug])
 }
@@ -82,6 +86,7 @@ model TableSession {
   startedAt          DateTime           @default(now())
   closedAt           DateTime?
   orders             Order[]
+  bookings           Booking[]
   restaurant         Restaurant         @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
   table              Table              @relation(fields: [tableId], references: [id], onDelete: Cascade)
 
@@ -106,26 +111,27 @@ model Category {
 }
 
 model MenuItem {
-  id              String            @id @default(cuid())
-  restaurantId    String
-  categoryId      String
-  name            String
-  description     String?
-  price           Decimal           @db.Decimal(10, 2)
-  imageUrl        String?
-  ingredients     String?
-  discountPercent Int               @default(0)
-  isAvailable     Boolean           @default(true)
-  sortOrder       Int               @default(0)
-  hasSpicyOption  Boolean           @default(false)
-  hasNoteOption   Boolean           @default(true)
-  createdAt       DateTime          @default(now())
-  updatedAt       DateTime          @updatedAt
-  foodType        String?
-  category        Category          @relation(fields: [categoryId], references: [id], onDelete: Cascade)
-  restaurant      Restaurant        @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
-  variants        MenuItemVariant[]
-  orderItems      OrderItem[]
+  id                  String            @id @default(cuid())
+  restaurantId        String
+  categoryId          String
+  name                String
+  description         String?
+  price               Decimal           @db.Decimal(10, 2)
+  imageUrl            String?
+  ingredients         String?
+  discountPercent     Int               @default(0)
+  isAvailable         Boolean           @default(true)
+  sortOrder           Int               @default(0)
+  hasSpicyOption      Boolean           @default(false)
+  hasNoteOption       Boolean           @default(true)
+  requiresPreparation Boolean           @default(true)
+  createdAt           DateTime          @default(now())
+  updatedAt           DateTime          @updatedAt
+  foodType            String?
+  category            Category          @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  restaurant          Restaurant        @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  variants            MenuItemVariant[]
+  orderItems          OrderItem[]
 
   @@index([restaurantId])
   @@index([categoryId])
@@ -149,22 +155,23 @@ model MenuItemVariant {
 }
 
 model Order {
-  id             String       @id @default(cuid())
-  orderNumber    Int
-  restaurantId   String
-  tableSessionId String
-  customerToken  String
-  status         OrderStatus  @default(PENDING)
-  statusChangedAt DateTime    @default(now())
-  subtotal       Decimal      @default(0) @db.Decimal(10, 2)
-  taxAmount      Decimal      @default(0) @db.Decimal(10, 2)
-  total          Decimal      @db.Decimal(10, 2)
-  notes          String?
-  createdAt      DateTime     @default(now())
-  updatedAt      DateTime     @updatedAt
-  restaurant     Restaurant   @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
-  tableSession   TableSession @relation(fields: [tableSessionId], references: [id], onDelete: Cascade)
-  orderItems     OrderItem[]
+  id              String       @id @default(cuid())
+  orderNumber     Int
+  restaurantId    String
+  tableSessionId  String
+  customerToken   String
+  source          OrderSource  @default(CUSTOMER)
+  status          OrderStatus  @default(PENDING)
+  statusChangedAt DateTime     @default(now())
+  subtotal        Decimal      @default(0) @db.Decimal(10, 2)
+  taxAmount       Decimal      @default(0) @db.Decimal(10, 2)
+  total           Decimal      @db.Decimal(10, 2)
+  notes           String?
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+  restaurant      Restaurant   @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  tableSession    TableSession @relation(fields: [tableSessionId], references: [id], onDelete: Cascade)
+  orderItems      OrderItem[]
 
   @@unique([restaurantId, orderNumber])
   @@index([restaurantId])
@@ -186,10 +193,16 @@ model OrderItem {
   subtotal          Decimal          @db.Decimal(10, 2)
   isSpicy           Boolean          @default(false)
   note              String?
+  status            OrderItemStatus  @default(NEW)
+  servedQuantity    Int              @default(0)
+  cancelledReason   String?
   createdAt         DateTime         @default(now())
   menuItem          MenuItem         @relation(fields: [menuItemId], references: [id])
   menuItemVariant   MenuItemVariant? @relation(fields: [menuItemVariantId], references: [id])
   order             Order            @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([orderId])
+  @@index([status])
 }
 
 model OrderSequence {
@@ -211,6 +224,55 @@ model Notification {
   @@index([restaurantId, read])
   @@index([restaurantId])
   @@index([restaurantId, createdAt])
+}
+
+model BookableService {
+  id                  String              @id @default(cuid())
+  restaurantId        String
+  name                String
+  type                BookableServiceType @default(OTHER)
+  description         String?
+  price               Decimal             @db.Decimal(10, 2)
+  imageUrl            String?
+  capacity            Int                 @default(2)
+  venueCount          Int                 @default(1)
+  slotDurationMinutes Int                 @default(60)
+  openingMinutes      Int                 @default(480)
+  closingMinutes      Int                 @default(1380)
+  isActive            Boolean             @default(true)
+  sortOrder           Int                 @default(0)
+  createdAt           DateTime            @default(now())
+  updatedAt           DateTime            @updatedAt
+  restaurant          Restaurant          @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  bookings            Booking[]
+
+  @@index([restaurantId])
+  @@index([restaurantId, isActive])
+}
+
+model Booking {
+  id              String          @id @default(cuid())
+  restaurantId    String
+  serviceId       String
+  tableSessionId  String?
+  contactName     String
+  contactPhone    String
+  note            String?
+  bookingDate     String // calendar day "YYYY-MM-DD" in restaurant time
+  startMinutes    Int // minutes from midnight when the slot starts
+  durationMinutes Int
+  guests          Int             @default(1)
+  status          BookingStatus   @default(PENDING)
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+  restaurant      Restaurant      @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  service         BookableService @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  tableSession    TableSession?   @relation(fields: [tableSessionId], references: [id], onDelete: SetNull)
+
+  @@index([restaurantId])
+  @@index([serviceId])
+  @@index([restaurantId, bookingDate])
+  @@index([restaurantId, status])
 }
 
 model PushSubscription {
@@ -240,6 +302,18 @@ enum OrderStatus {
   REJECTED
 }
 
+enum OrderItemStatus {
+  NEW
+  PREPARING
+  SERVED
+  CANCELLED
+}
+
+enum OrderSource {
+  CUSTOMER
+  WAITER
+}
+
 enum TableSessionStatus {
   ACTIVE
   CLOSED
@@ -250,4 +324,21 @@ enum NotificationType {
   NEW_TABLE_SESSION
   ASSISTANCE_REQUEST
   ORDER_STATUS
+  NEW_BOOKING
+}
+
+enum BookableServiceType {
+  ROOM
+  POOL
+  TABLE_GAME
+  ADVENTURE
+  OTHER
+}
+
+enum BookingStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+  COMPLETED
+  CANCELLED
 }

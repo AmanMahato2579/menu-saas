@@ -4,10 +4,14 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { formatCurrency } from "@/lib/utils";
+import { t } from "@/lib/i18n";
 import { Button } from "@/components/ui/button";
 import MenuItemModal from "@/components/customer/MenuItemModal";
-import { ShoppingCart, ChevronRight, BellRing, Loader2, AlertCircle } from "lucide-react";
+import { useCustomerLanguage, LanguageToggle } from "@/hooks/use-customer-lang";
+import { ShoppingCart, BellRing, Loader2, AlertCircle, Receipt, ClipboardList, Phone, Copy, Check, CalendarCheck } from "lucide-react";
 import type { CartItem } from "@/types";
+import { loadCart, saveCart } from "@/lib/customer-storage";
+import { validBrandColor } from "@/lib/brand";
 
 interface Restaurant {
   id: string;
@@ -17,6 +21,10 @@ interface Restaurant {
   logoUrl: string | null;
   currency: string;
   openingHours: string | null;
+  phone?: string | null;
+  language?: string;
+  bookingsEnabled?: boolean;
+  brandColor?: string;
 }
 
 interface MenuItem {
@@ -60,38 +68,18 @@ interface Props {
   categories: Category[];
 }
 
-const CART_KEY = (sessionId: string) => `cart_${sessionId}`;
-const CUSTOMER_TOKEN_KEY = "menuqr_customer_session";
-
-function getOrCreateCustomerToken(): string {
-  if (typeof window === "undefined") return "";
-  // sessionStorage keeps the dining session alive for the active tab only and
-  // clears on close, so customer/QR sessions never persist across visits.
-  let token = sessionStorage.getItem(CUSTOMER_TOKEN_KEY);
-  if (!token) {
-    token = `ct_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`;
-    sessionStorage.setItem(CUSTOMER_TOKEN_KEY, token);
-  }
-  return token;
-}
-
 export default function CustomerMenu({ restaurant, table, tableSession, categories }: Props) {
   const params = useParams();
+  const [lang, setLang] = useCustomerLanguage(restaurant.id, restaurant.language ?? "EN");
   const [customerName, setCustomerName] = useState("");
   const [starting, setStarting] = useState(false);
   const [calling, setCalling] = useState(false);
   const [foodFilter, setFoodFilter] = useState<"ALL" | "VEG" | "NON_VEG">("ALL");
-  const [cart, setCart] = useState<CartItem[]>(() => {
-    if (typeof window === "undefined") return [];
-    const saved = tableSession && sessionStorage.getItem(CART_KEY(tableSession.id));
-    if (saved) {
-      try { return JSON.parse(saved) as CartItem[]; } catch {}
-    }
-    return [];
-  });
+  const [cart, setCart] = useState<CartItem[]>(() => (tableSession ? loadCart(tableSession.id) : []));
   const [selectedItem, setSelectedItem] = useState<MenuItem | null>(null);
   const [activeCategory, setActiveCategory] = useState<string>(categories[0]?.id ?? "");
   const [sessionEnded, setSessionEnded] = useState(false);
+  const [copiedPhone, setCopiedPhone] = useState(false);
   const categoryRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
   // Poll for session status — detect when owner ends session mid-browse
@@ -113,10 +101,10 @@ export default function CustomerMenu({ restaurant, table, tableSession, categori
 
   // (cart is initialized from localStorage in the state initializer)
 
-  // Save cart to sessionStorage
+  // Save cart to localStorage
   const updateCart = (newCart: CartItem[]) => {
     setCart(newCart);
-    if (tableSession) sessionStorage.setItem(CART_KEY(tableSession.id), JSON.stringify(newCart));
+    if (tableSession) saveCart(tableSession.id, newCart);
   };
 
   const addToCart = (item: CartItem) => {
@@ -135,7 +123,7 @@ export default function CustomerMenu({ restaurant, table, tableSession, categori
       } else {
         newCart = [...prev, item];
       }
-      if (tableSession) sessionStorage.setItem(CART_KEY(tableSession.id), JSON.stringify(newCart));
+      if (tableSession) saveCart(tableSession.id, newCart);
       return newCart;
     });
     setSelectedItem(null);
@@ -195,40 +183,80 @@ export default function CustomerMenu({ restaurant, table, tableSession, categori
   const callForHelp = async () => {
     if (!tableSession || calling) return;
     setCalling(true);
-    try { const res = await fetch(`/api/customer/sessions/${tableSession.id}/assist`, { method: "POST" }); if (res.ok) alert("Your server has been notified."); } finally { setCalling(false); }
+    try {
+      const res = await fetch(`/api/customer/sessions/${tableSession.id}/assist`, { method: "POST" });
+      if (res.ok) alert(t(lang, "Your server has been notified.", "तपाईंको सूचना कर्मचारीलाई पठाइयो।"));
+    } finally { setCalling(false); }
+  };
+
+  const copyPhone = async () => {
+    if (!restaurant.phone) return;
+    try {
+      await navigator.clipboard.writeText(restaurant.phone);
+      setCopiedPhone(true);
+      setTimeout(() => setCopiedPhone(false), 2000);
+    } catch {
+      alert(t(lang, "Could not copy the number.", "नम्बर कपी गर्न सकिएन।"));
+    }
   };
 
   if (!tableSession) return (
-    <div className="min-h-screen bg-orange-50 flex items-center justify-center p-5">
+    <div data-brand={validBrandColor(restaurant.brandColor)} className="min-h-screen bg-orange-50 flex items-center justify-center p-5">
       <div className="max-w-sm w-full bg-white rounded-3xl shadow-xl p-7 text-center">
-        <div className="text-4xl mb-3">🍽️</div><h1 className="text-2xl font-bold">Welcome to {restaurant.name}</h1>
-        <p className="text-gray-500 mt-2">You are at Table {table.tableNumber}. Start when you are ready and we’ll let the team know you’ve arrived.</p>
-        <input value={customerName} onChange={(e) => setCustomerName(e.target.value)} maxLength={80} placeholder="Your name (optional)" className="mt-5 w-full rounded-xl border px-4 py-3" />
-        <Button onClick={startSession} disabled={starting} className="w-full mt-3 h-12 bg-orange-500 hover:bg-orange-600 text-white font-bold">{starting ? <Loader2 className="animate-spin" /> : "Start session"}</Button>
+        <div className="text-4xl mb-3">🍽️</div>
+        <h1 className="text-2xl font-bold">{t(lang, `Welcome to ${restaurant.name}`, `${restaurant.name} मा स्वागत छ`)}</h1>
+        <p className="text-gray-500 mt-2">
+          {t(
+            lang,
+            `You are at Table ${table.tableNumber}. Start when you are ready and we’ll let the team know you’ve arrived.`,
+            `तपाईं टेबल ${table.tableNumber} मा हुनुहुन्छ। तयार हुनुभयो भने सुरु गर्नुहोस्, हामी कर्मचारीलाई जानकारी दिनेछौं।`
+          )}
+        </p>
+        <input value={customerName} onChange={(e) => setCustomerName(e.target.value)} maxLength={80} placeholder={t(lang, "Your name (optional)", "तपाईंको नाम (ऐच्छिक)")} className="mt-5 w-full rounded-xl border px-4 py-3" />
+        <Button onClick={startSession} disabled={starting} className="w-full mt-3 h-12 bg-orange-500 hover:bg-orange-600 text-white font-bold">{starting ? <Loader2 className="animate-spin" /> : t(lang, "Start session", "सेसन सुरु गर्नुहोस्")}</Button>
+        {restaurant.bookingsEnabled && (
+          <Link
+            href={`${baseUrl}/book`}
+            className="mt-4 inline-flex items-center justify-center gap-2 w-full py-3 rounded-xl border border-indigo-200 text-indigo-600 font-semibold text-sm hover:bg-indigo-50 transition-colors"
+          >
+            <CalendarCheck className="w-4 h-4" />
+            {t(lang, "Book rooms & services (no session needed)", "कोठा र सेवाहरू बुक गर्नुहोस् (सेसन आवश्यक छैन)")}
+          </Link>
+        )}
       </div>
     </div>
   );
 
   if (sessionEnded) return (
-    <div className="min-h-screen bg-orange-50 flex items-center justify-center p-5">
+    <div data-brand={validBrandColor(restaurant.brandColor)} className="min-h-screen bg-orange-50 flex items-center justify-center p-5">
       <div className="max-w-sm w-full bg-white rounded-3xl shadow-xl p-7 text-center">
         <div className="w-16 h-16 rounded-2xl bg-orange-100 flex items-center justify-center mx-auto mb-4">
           <AlertCircle className="w-8 h-8 text-orange-500" />
         </div>
-        <h1 className="text-xl font-bold text-gray-900">Session Ended</h1>
+        <h1 className="text-xl font-bold text-gray-900">{t(lang, "Session Ended", "सेसन समाप्त")}</h1>
         <p className="text-gray-500 mt-2 text-sm">
-          The restaurant has closed this table session. Thank you for dining with us!
-          If you wish to start a new session, please ask the staff.
+          {t(
+            lang,
+            "The restaurant has closed this table session. Thank you for dining with us! If you wish to start a new session, please ask the staff.",
+            "रेस्टुरेन्टले यो टेबल सेसन बन्द गरेको छ। हामीसँग खाना खानु भएकोमा धन्यवाद! नयाँ सेसन सुरु गर्न चाहनुहुन्छ भने कृपया कर्मचारीलाई भन्नुहोस्।"
+          )}
         </p>
       </div>
     </div>
   );
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-32">
+    <div data-brand={validBrandColor(restaurant.brandColor)} className="min-h-screen bg-gray-50 pb-32">
       {/* Hero Header */}
-      <div className="menu-hero-gradient text-white px-4 pt-8 pb-6">
+      <div className="menu-hero-gradient text-white px-4 pt-8 pb-6 relative">
         <div className="max-w-lg mx-auto">
+          <div className="flex items-center justify-between gap-3">
+            <LanguageToggle lang={lang} onChange={setLang} />
+            <div className="inline-flex items-center gap-1.5 bg-white/20 backdrop-blur-sm rounded-full px-3 py-1.5 text-sm font-medium">
+              <span className="w-2 h-2 bg-white rounded-full animate-pulse" />
+              {t(lang, `Table ${table.tableNumber}`, `टेबल ${table.tableNumber}`)}
+            </div>
+          </div>
           {restaurant.logoUrl ? (
             <img
               src={restaurant.logoUrl}
@@ -244,19 +272,42 @@ export default function CustomerMenu({ restaurant, table, tableSession, categori
           {restaurant.description && (
             <p className="text-white/80 text-sm mt-1">{restaurant.description}</p>
           )}
-          <div className="inline-flex items-center gap-1.5 bg-white/20 backdrop-blur-sm rounded-full px-3 py-1.5 mt-3 text-sm font-medium">
-            <span className="w-2 h-2 bg-white rounded-full animate-pulse" />
-            Table {table.tableNumber}
-          </div>
         </div>
       </div>
 
       <div className="max-w-lg mx-auto">
 
+        {/* Quick links: My Orders + View Bill + Book (if enabled) */}
+        <div className={`px-4 pt-4 grid gap-3 sticky top-[-4px] z-20 ${restaurant.bookingsEnabled ? "grid-cols-2 sm:grid-cols-3" : "grid-cols-2"}`}>
+          <Link
+            href={`${baseUrl}/orders`}
+            className="flex items-center justify-center gap-2 p-3.5 bg-white rounded-2xl border shadow-sm hover:shadow-md transition-shadow"
+          >
+            <ClipboardList className="w-4 h-4 text-orange-500" />
+            <span className="font-semibold text-gray-800">{t(lang, "My Orders", "मेरा अर्डरहरू")}</span>
+          </Link>
+          <Link
+            href={`${baseUrl}/bill`}
+            className="flex items-center justify-center gap-2 p-3.5 bg-white rounded-2xl border shadow-sm hover:shadow-md transition-shadow"
+          >
+            <Receipt className="w-4 h-4 text-green-600" />
+            <span className="font-semibold text-gray-800">{t(lang, "View Bill", "बिल हेर्नुहोस्")}</span>
+          </Link>
+          {restaurant.bookingsEnabled && (
+            <Link
+              href={`${baseUrl}/book`}
+              className="flex items-center justify-center gap-2 p-3.5 bg-white rounded-2xl border border-indigo-200 shadow-sm hover:shadow-md transition-shadow"
+            >
+              <CalendarCheck className="w-4 h-4 text-indigo-500" />
+              <span className="font-semibold text-gray-800">{t(lang, "Book", "बुकिङ")}</span>
+            </Link>
+          )}
+        </div>
+
         {/* Category Nav */}
         {categories.length > 1 && (
           <div className="sticky top-0 z-30 bg-gray-50/95 backdrop-blur-sm px-4 pt-4 pb-2">
-            <div className="flex gap-2 overflow-x-auto pb-1 -mx-4 px-4 scrollbar-hide">
+            <div className="flex gap-2 overflow-x-auto pb-1 -mx-4 px-4">
               {categories.map((cat) => (
                 <button
                   key={cat.id}
@@ -276,12 +327,12 @@ export default function CustomerMenu({ restaurant, table, tableSession, categori
 
         {/* Food Type Filter */}
         <div className="px-4 pt-3">
-          <div className="flex gap-2 overflow-x-auto">
+          <div className="flex gap-2">
             {(["ALL", "VEG", "NON_VEG"] as const).map((f) => (
               <button
                 key={f}
                 onClick={() => setFoodFilter(f)}
-                className={`shrink-0 px-4 py-1.5 rounded-full text-sm font-medium border transition-all ${
+                className={`px-4 py-1.5 rounded-full text-sm font-medium border transition-all ${
                   foodFilter === f
                     ? f === "NON_VEG"
                       ? "bg-red-500 text-white border-red-500"
@@ -291,7 +342,7 @@ export default function CustomerMenu({ restaurant, table, tableSession, categori
                     : "bg-white text-gray-600 border-gray-200 hover:border-orange-300"
                 }`}
               >
-                {f === "ALL" ? "All" : f === "VEG" ? "🟢 Veg" : "🔴 Non-Veg"}
+                {f === "ALL" ? t(lang, "All", "सबै") : f === "VEG" ? t(lang, "🟢 Veg", "🟢 शाकाहारी") : t(lang, "🔴 Non-Veg", "🔴 मासु")}
               </button>
             ))}
           </div>
@@ -302,7 +353,9 @@ export default function CustomerMenu({ restaurant, table, tableSession, categori
           <div className="text-center py-20 px-4 text-gray-400">
             <p className="text-2xl mb-2">🍽️</p>
             <p className="font-medium">
-              {foodFilter === "ALL" ? "No menu items available yet" : `No ${foodFilter === "VEG" ? "veg" : "non-veg"} items available`}
+              {foodFilter === "ALL"
+                ? t(lang, "No menu items available yet", "अहिलेसम्म कुनै मेनु आइटम छैन")
+                : t(lang, `No ${foodFilter === "VEG" ? "veg" : "non-veg"} items available`, `कुनै ${foodFilter === "VEG" ? "शाकाहारी" : "मासु"} परिकार छैन`)}
             </p>
           </div>
         ) : (
@@ -324,7 +377,7 @@ export default function CustomerMenu({ restaurant, table, tableSession, categori
                         <img
                           src={item.imageUrl}
                           alt={item.name}
-                          className="w-20 h-20 sm:w-24 sm:h-24 object-cover shrink-0"
+                          className="w-24 h-24 object-cover shrink-0"
                           loading="lazy"
                         />
                       )}
@@ -336,7 +389,7 @@ export default function CustomerMenu({ restaurant, table, tableSession, categori
                             ) : (
                               <span className={`w-3 h-3 rounded-sm border-2 flex-shrink-0 ${resolveType(item) === "NON_VEG" ? "border-red-500" : "border-green-500"}`} title={resolveType(item) === "NON_VEG" ? "Non-Veg" : "Veg"} />
                             )}
-                            <p className="font-semibold text-gray-900 truncate">{item.name}</p>
+                            <p className="font-semibold text-gray-900">{item.name}</p>
                           </div>
                           {item.description && (
                             <p className="text-xs text-gray-400 mt-0.5 line-clamp-2">{item.description}</p>
@@ -383,24 +436,31 @@ export default function CustomerMenu({ restaurant, table, tableSession, categori
           </div>
         )}
 
-        {/* Nav links */}
+        {/* Call for assistance — bottom */}
         <div className="px-4 mt-8 space-y-2">
-          <Link
-            href={`${baseUrl}/orders`}
-            className="flex items-center justify-between p-4 bg-white rounded-2xl border shadow-sm hover:shadow-md transition-shadow"
-          >
-            <span className="font-medium text-gray-700">My Orders</span>
-            <ChevronRight className="w-4 h-4 text-gray-400" />
-          </Link>
-          <Link
-            href={`${baseUrl}/bill`}
-            className="flex items-center justify-between p-4 bg-white rounded-2xl border shadow-sm hover:shadow-md transition-shadow"
-          >
-            <span className="font-medium text-gray-700">View Full Bill</span>
-            <ChevronRight className="w-4 h-4 text-gray-400" />
-          </Link>
+          {restaurant.phone && (
+            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-green-50 flex items-center justify-center shrink-0">
+                <Phone className="w-5 h-5 text-green-600" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-xs text-gray-400">{t(lang, "Call the restaurant", "रेस्टुरेन्टलाई कल गर्नुहोस्")}</p>
+                <a href={`tel:${restaurant.phone.replace(/[^+\d]/g, "")}`} className="font-bold text-gray-900 block truncate">{restaurant.phone}</a>
+              </div>
+              <button
+                onClick={copyPhone}
+                className="h-9 px-3 rounded-xl border border-gray-200 text-gray-600 hover:bg-gray-50 flex items-center gap-1.5 text-xs font-medium shrink-0"
+              >
+                {copiedPhone ? (
+                  <><Check className="w-3.5 h-3.5 text-green-600" /> {t(lang, "Copied", "कपी भयो")}</>
+                ) : (
+                  <><Copy className="w-3.5 h-3.5" /> {t(lang, "Copy", "कपी गर्नुहोस्")}</>
+                )}
+              </button>
+            </div>
+          )}
           <button onClick={callForHelp} disabled={calling} className="w-full flex items-center justify-between p-4 bg-orange-50 text-orange-700 rounded-2xl border border-orange-200 font-medium">
-            <span className="flex items-center gap-2"><BellRing className="w-5 h-5" /> Call for assistance</span><span className="text-xs">{calling ? "Sending…" : "Always available"}</span>
+            <span className="flex items-center gap-2"><BellRing className="w-5 h-5" /> {t(lang, "Call for assistance", "सहायता माग्नुहोस्")}</span><span className="text-xs">{calling ? t(lang, "Sending…", "पठाउँदै…") : t(lang, "Always available", "सधैं उपलब्ध")}</span>
           </button>
         </div>
       </div>
@@ -417,7 +477,7 @@ export default function CustomerMenu({ restaurant, table, tableSession, categori
                     {cartCount}
                   </span>
                 </div>
-                <span>View Cart</span>
+                <span>{t(lang, "View Cart", "कार्ट हेर्नुहोस्")}</span>
                 <span>{formatCurrency(cartTotal, restaurant.currency)}</span>
               </Button>
             </Link>
@@ -430,6 +490,7 @@ export default function CustomerMenu({ restaurant, table, tableSession, categori
         <MenuItemModal
           item={selectedItem}
           currency={restaurant.currency}
+          lang={lang}
           onClose={() => setSelectedItem(null)}
           onAddToCart={addToCart}
         />

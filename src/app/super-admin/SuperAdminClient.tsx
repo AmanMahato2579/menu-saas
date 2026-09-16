@@ -8,9 +8,10 @@ import type { Resolver } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useToast } from "@/components/ui/toast";
-import { Plus, Building2, Users, QrCode, CheckCircle, XCircle, Loader2, Trash2, Pencil, LogOut } from "lucide-react";
+import { Plus, Building2, Users, QrCode, CheckCircle, XCircle, Loader2, Trash2, Pencil, LogOut, CalendarCheck, Palette } from "lucide-react";
 import { slugify } from "@/lib/utils";
 import InstallPWA from "@/components/admin/InstallPWA";
+import { BRAND_PALETTES } from "@/lib/brand";
 
 const restaurantSchema = z.object({
   name: z.string().min(2, "Name too short"),
@@ -33,6 +34,8 @@ interface Restaurant {
   tableLimit: number;
   isActive: boolean;
   plan: string;
+  bookingsEnabled: boolean;
+  brandColor: string;
   createdAt: string;
   _count: { tables: number; users: number };
 }
@@ -95,11 +98,25 @@ export default function SuperAdminClient({ restaurants }: Props) {
     if (!editing) return;
     const form = new FormData(event.currentTarget);
     setEditSaving(true);
-    const res = await fetch(`/api/super-admin/restaurants/${editing.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: form.get("name"), phone: form.get("phone") || null, address: form.get("address") || null, tableLimit: Number(form.get("tableLimit")), plan: form.get("plan") }) });
+    const res = await fetch(`/api/super-admin/restaurants/${editing.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: form.get("name"), phone: form.get("phone") || null, address: form.get("address") || null, tableLimit: Number(form.get("tableLimit")), plan: form.get("plan"), bookingsEnabled: form.get("bookingsEnabled") === "on", brandColor: form.get("brandColor") || "orange" }) });
     setEditSaving(false);
     if (res.ok) { toast({ title: "Restaurant updated", variant: "success" }); startTransition(() => router.refresh()); }
     else toast({ title: "Could not update restaurant", variant: "destructive" });
     if (res.ok) setEditing(null);
+  };
+
+  const toggleBookings = async (id: string, current: boolean) => {
+    const res = await fetch(`/api/super-admin/restaurants/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ bookingsEnabled: !current }),
+    });
+    if (res.ok) {
+      toast({ title: `Bookings ${!current ? "enabled" : "disabled"}`, variant: "success" });
+      startTransition(() => router.refresh());
+    } else {
+      toast({ title: "Error updating bookings", variant: "destructive" });
+    }
   };
 
   const onSubmit = async (data: RestaurantForm) => {
@@ -135,7 +152,7 @@ export default function SuperAdminClient({ restaurants }: Props) {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <div className="bg-white/5 border border-white/10 rounded-xl p-5">
           <p className="text-gray-400 text-sm">Total Restaurants</p>
           <p className="text-3xl font-bold text-white mt-1">{restaurants.length}</p>
@@ -231,6 +248,18 @@ export default function SuperAdminClient({ restaurants }: Props) {
                     <option value="BRONZE">🥉 BRONZE</option>
                   </select>
                 </div>
+                <div className="md:col-span-2 space-y-1">
+                  <p className="text-xs text-orange-200 font-medium flex items-center gap-1"><Palette className="w-3.5 h-3.5" /> Brand Color</p>
+                  <select name="brandColor" defaultValue={r.brandColor || "orange"} className={inputCls}>
+                    {BRAND_PALETTES.map((palette) => (
+                      <option key={palette.key} value={palette.key}>{palette.label}</option>
+                    ))}
+                  </select>
+                </div>
+                <label className="md:col-span-2 flex items-center gap-2 text-sm text-orange-200 cursor-pointer">
+                  <input type="checkbox" name="bookingsEnabled" defaultChecked={r.bookingsEnabled} className="w-4 h-4 accent-orange-500" />
+                  Enable Booking feature (rooms, pool, adventures) for this restaurant
+                </label>
                 <p className="md:col-span-2 text-xs text-orange-200/80">The limit controls the maximum number of QR tables the restaurant can create. It cannot be set below the existing table count.</p>
                 <div className="md:col-span-2 flex gap-2"><button disabled={editSaving} className="px-4 py-2 rounded-lg bg-orange-500 text-sm font-medium text-white">{editSaving ? "Saving…" : "Save changes"}</button><button type="button" onClick={() => setEditing(null)} className="px-4 py-2 rounded-lg border border-white/20 text-sm">Cancel</button></div>
               </form>
@@ -275,11 +304,22 @@ export default function SuperAdminClient({ restaurants }: Props) {
                 <div className="flex items-center gap-3 mt-1 text-xs text-gray-400 flex-wrap">
                   <span className="flex items-center gap-1"><QrCode className="w-3 h-3" /> {r._count.tables} / {r.tableLimit} QR tables</span>
                   <span className="flex items-center gap-1"><Users className="w-3 h-3" /> {r._count.users} users</span>
+                  {r.bookingsEnabled && <span className="flex items-center gap-1"><CalendarCheck className="w-3 h-3" /> Bookings on</span>}
                   {r.phone && <span>📞 {r.phone}</span>}
                 </div>
               </div>
               <div className="flex flex-col gap-2 shrink-0">
                 <button onClick={() => setEditing(r)} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border border-white/20 text-gray-200 hover:bg-white/10"><Pencil className="w-3.5 h-3.5" /> Edit details</button>
+                <button
+                  onClick={() => toggleBookings(r.id, r.bookingsEnabled)}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                    r.bookingsEnabled
+                      ? "border border-orange-500/30 text-orange-300 hover:bg-orange-500/10"
+                      : "border border-white/20 text-gray-200 hover:bg-white/10"
+                  }`}
+                >
+                  <CalendarCheck className="w-3.5 h-3.5" /> {r.bookingsEnabled ? "Disable bookings" : "Enable bookings"}
+                </button>
                 <button
                   onClick={() => toggleActive(r.id, r.isActive)}
                   className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${

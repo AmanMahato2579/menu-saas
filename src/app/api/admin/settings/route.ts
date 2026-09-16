@@ -2,9 +2,14 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { BRAND_COLOR_KEYS } from "@/lib/brand";
+
+const brandColorSchema = z.string().refine((v) => BRAND_COLOR_KEYS.has(v), {
+  message: "Unknown brand color",
+});
 
 const settingsSchema = z.object({
-  name: z.string().min(1).max(200),
+  name: z.string().min(1).max(200).optional(),
   description: z.string().optional().nullable(),
   address: z.string().optional().nullable(),
   phone: z.string().optional().nullable(),
@@ -16,6 +21,8 @@ const settingsSchema = z.object({
   isTaxEnabled: z.boolean().optional(),
   serviceChargeRate: z.coerce.number().min(0).max(100).optional(),
   isServiceChargeEnabled: z.boolean().optional(),
+  bookingsEnabled: z.boolean().optional(),
+  brandColor: brandColorSchema.optional(),
 });
 
 export async function PATCH(req: Request) {

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { formatCurrency } from "@/lib/utils";
+import { t } from "@/lib/i18n";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { X, Minus, Plus } from "lucide-react";
@@ -23,11 +24,12 @@ interface MenuItem {
 interface Props {
   item: MenuItem;
   currency: string;
+  lang?: string | null;
   onClose: () => void;
   onAddToCart: (item: CartItem) => void;
 }
 
-export default function MenuItemModal({ item, currency, onClose, onAddToCart }: Props) {
+export default function MenuItemModal({ item, currency, lang = "EN", onClose, onAddToCart }: Props) {
   const [quantity, setQuantity] = useState(1);
   const [isSpicy, setIsSpicy] = useState(false);
   const [note, setNote] = useState("");
@@ -105,7 +107,7 @@ export default function MenuItemModal({ item, currency, onClose, onAddToCart }: 
 
           {item.variants && item.variants.length > 0 && (
             <div>
-              <p className="text-sm font-semibold text-gray-700 mb-2">Choose Variant</p>
+              <p className="text-sm font-semibold text-gray-700 mb-2">{t(lang, "Choose Variant", "भेरियन्ट छान्नुहोस्")}</p>
               <div className="grid grid-cols-2 gap-2">
                 {item.variants.map((entry) => (
                   <button
@@ -136,7 +138,7 @@ export default function MenuItemModal({ item, currency, onClose, onAddToCart }: 
 
           {/* Quantity */}
           <div>
-            <p className="text-sm font-semibold text-gray-700 mb-2">Quantity</p>
+            <p className="text-sm font-semibold text-gray-700 mb-2">{t(lang, "Quantity", "परिमाण")}</p>
             <div className="flex items-center gap-4">
               <button
                 onClick={() => setQuantity((q) => Math.max(1, q - 1))}
@@ -157,11 +159,11 @@ export default function MenuItemModal({ item, currency, onClose, onAddToCart }: 
           {/* Spice */}
           {item.hasSpicyOption && (
             <div>
-              <p className="text-sm font-semibold text-gray-700 mb-2">Spice Level</p>
+              <p className="text-sm font-semibold text-gray-700 mb-2">{t(lang, "Spice Level", "पिरोको मात्रा")}</p>
               <div className="flex gap-3">
                 {[
-                  { value: false, label: "🌿 Normal" },
-                  { value: true, label: "🌶️ Spicy" },
+                  { value: false, label: t(lang, "🌿 Normal", "🌿 सामान्य") },
+                  { value: true, label: t(lang, "🌶️ Spicy", "🌶️ पिरो") },
                 ].map(({ value, label }) => (
                   <button
                     key={label}
@@ -182,9 +184,9 @@ export default function MenuItemModal({ item, currency, onClose, onAddToCart }: 
           {/* Notes */}
           {item.hasNoteOption && (
             <div>
-              <p className="text-sm font-semibold text-gray-700 mb-2">Special Instructions</p>
+              <p className="text-sm font-semibold text-gray-700 mb-2">{t(lang, "Special Instructions", "विशेष निर्देशन")}</p>
               <Textarea
-                placeholder="e.g. Less spicy, extra chutney..."
+                placeholder={t(lang, "e.g. Less spicy, extra chutney...", "जस्तै: कम पिरो, थप अचार...")}
                 value={note}
                 onChange={(e) => setNote(e.target.value)}
                 rows={2}
@@ -198,7 +200,7 @@ export default function MenuItemModal({ item, currency, onClose, onAddToCart }: 
             onClick={handleAdd}
             className="w-full bg-orange-500 hover:bg-orange-600 text-white h-14 rounded-2xl text-base font-bold shadow-lg shadow-orange-500/30"
           >
-            Add to Cart · {formatCurrency(total, currency)}
+            {t(lang, "Add to Cart", "कार्टमा थप्नुहोस्")} · {formatCurrency(total, currency)}
           </Button>
         </div>
       </div>

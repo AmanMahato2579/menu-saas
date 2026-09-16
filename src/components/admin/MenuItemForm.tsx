@@ -27,14 +27,14 @@ const itemSchema = z.object({
   isAvailable: z.boolean().default(true),
   hasSpicyOption: z.boolean().default(false),
   hasNoteOption: z.boolean().default(true),
+  requiresPreparation: z.boolean().default(true),
   ingredients: z.string().optional(),
   discountPercent: z.coerce.number().int().min(0).max(100).default(0),
+  foodType: z.enum(FOOD_TYPES).default("NONE"),
   variants: z.array(z.object({
-    id: z.string().optional(),
     name: z.string().min(1, "Variant name is required"),
     price: z.coerce.number().positive("Variant price must be positive"),
     foodType: z.enum(FOOD_TYPES).default("NONE"),
-    isAvailable: z.boolean().default(true),
   })).default([]),
 }).superRefine((data, ctx) => {
   if ((!data.variants || data.variants.length === 0) && (!data.price || data.price <= 0)) {
@@ -65,28 +65,14 @@ interface MenuItem {
   isAvailable: boolean;
   hasSpicyOption: boolean;
   hasNoteOption: boolean;
+  requiresPreparation?: boolean;
   foodType: string | null;
-  variants?: { id: string; name: string; price: string; foodType?: string | null; isAvailable?: boolean }[];
+  variants?: { id: string; name: string; price: string; foodType?: string | null }[];
 }
 
 /** Normalize legacy/unknown food-type values to the supported set. */
 function normalizeFoodType(value: string | null | undefined): FoodType {
   return value === "VEG" || value === "NON_VEG" || value === "NONE" ? value : "NONE";
-}
-
-// Prices are whole numbers only: ignore scroll-wheel changes, strip everything
-// but digits, and stop decimal/exponent/negative keys from ever being entered.
-function preventWheel(e: React.WheelEvent<HTMLInputElement>) {
-  e.currentTarget.blur();
-}
-
-function blockNonIntegerKeys(e: React.KeyboardEvent<HTMLInputElement>) {
-  if ([".", ",", "e", "E", "+", "-"].includes(e.key)) e.preventDefault();
-}
-
-function keepIntegerOnly(e: React.ChangeEvent<HTMLInputElement>) {
-  const clean = e.target.value.replace(/\D/g, "");
-  if (e.target.value !== clean) e.target.value = clean;
 }
 
 interface Props {
@@ -119,19 +105,22 @@ export default function MenuItemForm({ categories, defaultCategoryId, item }: Pr
       isAvailable: item?.isAvailable ?? true,
       hasSpicyOption: item?.hasSpicyOption ?? false,
       hasNoteOption: item?.hasNoteOption ?? true,
+      requiresPreparation: item?.requiresPreparation ?? true,
+      foodType: normalizeFoodType(item?.foodType),
       variants: item?.variants?.map((variant) => ({
-        id: variant.id,
         name: variant.name,
         price: Number(variant.price),
         foodType: normalizeFoodType(variant.foodType),
-        isAvailable: variant.isAvailable ?? true,
       })) ?? [],
     },
   });
   const { fields: variants, append: addVariant, remove: removeVariant } = useFieldArray({ control, name: "variants" });
 
+  const isAvailable = watch("isAvailable");
   const hasSpicyOption = watch("hasSpicyOption");
   const hasNoteOption = watch("hasNoteOption");
+  const requiresPreparation = watch("requiresPreparation");
+  const foodType = watch("foodType");
   const watchedVariants = watch("variants");
 
   const onSubmit = async (data: ItemForm) => {
@@ -202,7 +191,7 @@ export default function MenuItemForm({ categories, defaultCategoryId, item }: Pr
               </Label>
               {watchedVariants && watchedVariants.length > 0 && (
                 <span className="text-[11px] text-orange-600 font-medium bg-orange-50 px-2 py-0.5 rounded border border-orange-200">
-                  Auto-set to highest variant price if left empty
+                  Auto-set from 1st variant if left empty
                 </span>
               )}
             </div>
@@ -211,11 +200,8 @@ export default function MenuItemForm({ categories, defaultCategoryId, item }: Pr
               type="number"
               step="1"
               min="0"
-              inputMode="numeric"
               placeholder={watchedVariants && watchedVariants.length > 0 ? "Auto-filled from variants" : "180"}
-              {...register("price", { onChange: keepIntegerOnly })}
-              onWheel={preventWheel}
-              onKeyDown={blockNonIntegerKeys}
+              {...register("price")}
               className="appearance-none [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
             />
             {errors.price && <p className="text-red-500 text-xs">{errors.price.message}</p>}
@@ -235,7 +221,7 @@ export default function MenuItemForm({ categories, defaultCategoryId, item }: Pr
                 variant="outline"
                 size="sm"
                 className="bg-white hover:bg-orange-50 border-orange-200 text-orange-600 font-semibold shrink-0"
-                onClick={() => addVariant({ name: "", price: 0, foodType: "NONE", isAvailable: true })}
+                onClick={() => addVariant({ name: "", price: 0, foodType: normalizeFoodType(foodType) })}
               >
                 + Add Variant
               </Button>
@@ -254,12 +240,9 @@ export default function MenuItemForm({ categories, defaultCategoryId, item }: Pr
                       type="number"
                       min="0"
                       step="1"
-                      inputMode="numeric"
                       placeholder="Price (Rs.)"
-                      {...register(`variants.${index}.price`, { onChange: keepIntegerOnly })}
-                      onWheel={preventWheel}
-                      onKeyDown={blockNonIntegerKeys}
-                      className="w-28 appearance-none [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                      {...register(`variants.${index}.price`)}
+                      className="w-28"
                     />
                     <select
                       {...register(`variants.${index}.foodType`)}
@@ -312,18 +295,81 @@ export default function MenuItemForm({ categories, defaultCategoryId, item }: Pr
               step="1"
               min="0"
               max="100"
-              inputMode="numeric"
               placeholder="0"
-              {...register("discountPercent", { onChange: keepIntegerOnly })}
-              onWheel={preventWheel}
-              onKeyDown={blockNonIntegerKeys}
+              {...register("discountPercent")}
               className="appearance-none [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
             />
             {errors.discountPercent && <p className="text-red-500 text-xs">{errors.discountPercent.message}</p>}
           </div>
 
+          {/* Food Type */}
+          <div className="space-y-2 rounded-xl border bg-gray-50 p-3">
+            <Label>Food Type</Label>
+            <div className="flex flex-wrap gap-3">
+              <label
+                className={`relative flex-1 flex items-center justify-center gap-2 cursor-pointer rounded-lg border-2 py-2.5 text-sm font-medium transition-all ${
+                  foodType === "VEG"
+                    ? "border-green-500 bg-green-50 text-green-700"
+                    : "border-gray-200 bg-white text-gray-500 hover:border-gray-300"
+                }`}
+              >
+                <input
+                  type="radio"
+                  value="VEG"
+                  {...register("foodType")}
+                  className="sr-only"
+                />
+                <span className="text-lg">🟢</span> Veg
+              </label>
+              <label
+                className={`relative flex-1 flex items-center justify-center gap-2 cursor-pointer rounded-lg border-2 py-2.5 text-sm font-medium transition-all ${
+                  foodType === "NON_VEG"
+                    ? "border-red-500 bg-red-50 text-red-700"
+                    : "border-gray-200 bg-white text-gray-500 hover:border-gray-300"
+                }`}
+              >
+                <input
+                  type="radio"
+                  value="NON_VEG"
+                  {...register("foodType")}
+                  className="sr-only"
+                />
+                <span className="text-lg">🔴</span> Non-Veg
+              </label>
+              <label
+                className={`relative flex basis-full sm:basis-0 flex-1 items-center justify-center gap-2 cursor-pointer rounded-lg border-2 py-2.5 text-sm font-medium transition-all ${
+                  foodType === "NONE"
+                    ? "border-gray-500 bg-gray-100 text-gray-700"
+                    : "border-gray-200 bg-white text-gray-500 hover:border-gray-300"
+                }`}
+              >
+                <input
+                  type="radio"
+                  value="NONE"
+                  {...register("foodType")}
+                  className="sr-only"
+                />
+                <span className="text-lg">⚪</span> None / Other
+              </label>
+            </div>
+            <p className="text-xs text-gray-400 mt-1">
+              Use <strong>None / Other</strong> for drinks, beverages, snacks and other non-food items. No Veg/Non-Veg indicator will be shown for these.
+            </p>
+          </div>
+
           {/* Toggles */}
           <div className="space-y-3 pt-2 border-t">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-900">Available</p>
+                <p className="text-xs text-gray-400">Show this item to customers</p>
+              </div>
+              <Switch
+                checked={isAvailable}
+                onCheckedChange={(val) => setValue("isAvailable", val)}
+              />
+            </div>
+
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-gray-900">Spicy Option</p>
@@ -343,6 +389,21 @@ export default function MenuItemForm({ categories, defaultCategoryId, item }: Pr
               <Switch
                 checked={hasNoteOption}
                 onCheckedChange={(val) => setValue("hasNoteOption", val)}
+              />
+            </div>
+
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-900">Needs Kitchen Preparation</p>
+                <p className="text-xs text-gray-400">
+                  {requiresPreparation
+                    ? "Requires cooking — staff serves it and it appears on the bill as cooking in progress."
+                    : "Ready-to-serve item — can be served instantly, no cooking needed."}
+                </p>
+              </div>
+              <Switch
+                checked={requiresPreparation}
+                onCheckedChange={(val) => setValue("requiresPreparation", val)}
               />
             </div>
           </div>

@@ -38,6 +38,10 @@ export function getOrderStatusColor(status: string): string {
     COMPLETED: "bg-gray-100 text-gray-800 border-gray-200",
     REJECTED: "bg-red-100 text-red-800 border-red-200",
   };
+  // Per-item operational statuses (primary lifecycle)
+  colors.NEW = "bg-sky-100 text-sky-800 border-sky-200";
+  colors.SERVED = "bg-green-100 text-green-800 border-green-200";
+  colors.CANCELLED = "bg-red-100 text-red-700 border-red-200";
   return colors[status] ?? "bg-gray-100 text-gray-800 border-gray-200";
 }
 
@@ -49,8 +53,18 @@ export function getOrderStatusLabel(status: string): string {
     READY: "Ready",
     COMPLETED: "Completed",
     REJECTED: "Rejected",
+    NEW: "New",
+    SERVED: "Served",
+    CANCELLED: "Cancelled",
   };
   return labels[status] ?? status;
+}
+
+/** Serialize Decimal/number money values to plain JSON-safe numbers. */
+export function toNumber(value: number | string | null | undefined): number {
+  if (typeof value === "number") return value;
+  if (typeof value === "string") return parseFloat(value) || 0;
+  return 0;
 }
 
 export function generateCustomerToken(): string {

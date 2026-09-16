@@ -1,29 +1,16 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useRouter, useParams } from "next/navigation";
 import Link from "next/link";
 import { formatCurrency } from "@/lib/utils";
+import { t } from "@/lib/i18n";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/toast";
+import { useCustomerLanguage, LanguageToggle } from "@/hooks/use-customer-lang";
 import { ArrowLeft, Trash2, Minus, Plus, Loader2, ShoppingCart } from "lucide-react";
 import type { CartItem } from "@/types";
-
-const CART_KEY = (sessionId: string) => `cart_${sessionId}`;
-const CUSTOMER_TOKEN_KEY = "menuqr_customer_session";
-
-function getCustomerToken(): string {
-  if (typeof window === "undefined") return "";
-  // sessionStorage keeps a customer's identity + cart alive for the current tab
-  // (survives refreshes) but clears when the tab/app is closed, so dining
-  // sessions stay ephemeral instead of lingering in the browser.
-  let token = sessionStorage.getItem(CUSTOMER_TOKEN_KEY);
-  if (!token) {
-    token = `ct_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`;
-    sessionStorage.setItem(CUSTOMER_TOKEN_KEY, token);
-  }
-  return token;
-}
+import { getOrCreateCustomerToken, loadCart, saveCart } from "@/lib/customer-storage";
 
 interface Restaurant {
   id: string;
@@ -34,6 +21,7 @@ interface Restaurant {
   taxRate: number;
   isServiceChargeEnabled: boolean;
   serviceChargeRate: number;
+  language?: string;
 }
 
 interface Props {
@@ -46,14 +34,8 @@ export default function CartClient({ restaurant, table, tableSession }: Props) {
   const router = useRouter();
   const params = useParams();
   const { toast } = useToast();
-  const [cart, setCart] = useState<CartItem[]>(() => {
-    if (typeof window === "undefined") return [];
-    const saved = sessionStorage.getItem(CART_KEY(tableSession.id));
-    if (saved) {
-      try { return JSON.parse(saved) as CartItem[]; } catch {}
-    }
-    return [];
-  });
+  const [lang, setLang] = useCustomerLanguage(restaurant.id, restaurant.language ?? "EN");
+  const [cart, setCart] = useState<CartItem[]>(() => loadCart(tableSession.id));
   const [placing, setPlacing] = useState(false);
 
   const baseUrl = `/r/${params.restaurantSlug}/t/${params.tableToken}`;
@@ -62,13 +44,13 @@ export default function CartClient({ restaurant, table, tableSession }: Props) {
     const newCart = [...cart];
     newCart[idx] = { ...newCart[idx], quantity: Math.max(1, newCart[idx].quantity + delta) };
     setCart(newCart);
-    sessionStorage.setItem(CART_KEY(tableSession.id), JSON.stringify(newCart));
+    saveCart(tableSession.id, newCart);
   };
 
   const removeItem = (idx: number) => {
     const newCart = cart.filter((_, i) => i !== idx);
     setCart(newCart);
-    sessionStorage.setItem(CART_KEY(tableSession.id), JSON.stringify(newCart));
+    saveCart(tableSession.id, newCart);
   };
 
   const subtotal = cart.reduce((sum, i) => sum + i.price * i.quantity, 0);
@@ -81,7 +63,7 @@ export default function CartClient({ restaurant, table, tableSession }: Props) {
   const placeOrder = async () => {
     if (cart.length === 0) return;
     setPlacing(true);
-    const customerToken = getCustomerToken();
+    const customerToken = getOrCreateCustomerToken();
     try {
       const res = await fetch("/api/customer/orders", {
         method: "POST",
@@ -102,19 +84,19 @@ export default function CartClient({ restaurant, table, tableSession }: Props) {
 
       if (!res.ok) {
         const err = await res.json();
-        toast({ title: "Order failed", variant: "destructive", description: err.error });
+        toast({ title: t(lang, "Order failed", "अर्डर असफल"), variant: "destructive", description: err.error });
         return;
       }
 
       const order = await res.json();
       // Clear cart
-      sessionStorage.setItem(CART_KEY(tableSession.id), "[]");
+      saveCart(tableSession.id, []);
       setCart([]);
-      toast({ title: "Order placed! 🎉", variant: "success", description: `Order #${order.orderNumber} received.` });
+      toast({ title: t(lang, "Order placed! 🎉", "अर्डर सफल भयो! 🎉"), variant: "success", description: t(lang, `Order #${order.orderNumber} received.`, `अर्डर #${order.orderNumber} प्राप्त भयो।`) });
       // Keep the guest in the active session so they can add more items later.
       router.push(baseUrl);
     } catch {
-      toast({ title: "Network error", variant: "destructive", description: "Please try again." });
+      toast({ title: t(lang, "Network error", "नेटवर्क त्रुटि"), variant: "destructive", description: t(lang, "Please try again.", "कृपया फेरि प्रयास गर्नुहोस्।") });
     } finally {
       setPlacing(false);
     }
@@ -130,8 +112,11 @@ export default function CartClient({ restaurant, table, tableSession }: Props) {
               <ArrowLeft className="w-4 h-4" />
             </button>
           </Link>
-          <h1 className="font-bold text-gray-900 text-lg">Your Cart</h1>
-          <span className="text-sm text-gray-400 ml-auto">Table {table.tableNumber}</span>
+          <h1 className="font-bold text-gray-900 text-lg">{t(lang, "Your Cart", "तपाईंको कार्ट")}</h1>
+          <div className="ml-auto flex items-center gap-3">
+            <LanguageToggle lang={lang} onChange={setLang} variant="light" />
+            <span className="text-sm text-gray-400">{t(lang, `Table ${table.tableNumber}`, `टेबल ${table.tableNumber}`)}</span>
+          </div>
         </div>
       </div>
 
@@ -139,11 +124,11 @@ export default function CartClient({ restaurant, table, tableSession }: Props) {
         {cart.length === 0 ? (
           <div className="text-center py-20">
             <ShoppingCart className="w-14 h-14 text-gray-200 mx-auto mb-4" />
-            <p className="text-lg font-medium text-gray-500">Your cart is empty</p>
-            <p className="text-sm text-gray-400 mt-1">Add some delicious items from the menu</p>
+            <p className="text-lg font-medium text-gray-500">{t(lang, "Your cart is empty", "तपाईंको कार्ट खाली छ")}</p>
+            <p className="text-sm text-gray-400 mt-1">{t(lang, "Add some delicious items from the menu", "मेनुबाट केही स्वादिलो परिकार थप्नुहोस्")}</p>
             <Link href={baseUrl}>
               <Button className="mt-6 bg-orange-500 hover:bg-orange-600 text-white">
-                Browse Menu
+                {t(lang, "Browse Menu", "मेनु हेर्नुहोस्")}
               </Button>
             </Link>
           </div>
@@ -156,7 +141,7 @@ export default function CartClient({ restaurant, table, tableSession }: Props) {
                   <div className="flex-1">
                     <p className="font-semibold text-gray-900">{item.menuItemName}</p>
                     {item.variantName && <p className="text-xs text-gray-500">{item.variantName}</p>}
-                    {item.isSpicy && <p className="text-xs text-red-500 mt-0.5">🌶️ Spicy</p>}
+                    {item.isSpicy && <p className="text-xs text-red-500 mt-0.5">🌶️ {t(lang, "Spicy", "पिरो")}</p>}
                     {item.note && <p className="text-xs text-gray-400 italic mt-0.5">&quot;{item.note}&quot;</p>}
                   </div>
                   <button
@@ -192,23 +177,23 @@ export default function CartClient({ restaurant, table, tableSession }: Props) {
             {/* Summary */}
             <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 mt-2">
               <div className="flex justify-between text-sm text-gray-500 mb-2">
-                <span>Subtotal ({cart.reduce((s, i) => s + i.quantity, 0)} items)</span>
+                <span>{t(lang, "Subtotal", "जम्मा")} ({cart.reduce((s, i) => s + i.quantity, 0)} {t(lang, "items", "वस्तुहरू")})</span>
                 <span>{formatCurrency(subtotal, restaurant.currency)}</span>
               </div>
               {restaurant.isTaxEnabled && tableSession.applyTax && (
                 <div className="flex justify-between text-sm text-gray-500 mb-1">
-                  <span>VAT / Tax ({restaurant.taxRate}%)</span>
+                  <span>{t(lang, "VAT / Tax", "भ्याट / कर")} ({restaurant.taxRate}%)</span>
                   <span>{formatCurrency(taxAmount, restaurant.currency)}</span>
                 </div>
               )}
               {restaurant.isServiceChargeEnabled && tableSession.applyServiceCharge && (
                 <div className="flex justify-between text-sm text-gray-500 mb-1">
-                  <span>Service Charge ({restaurant.serviceChargeRate}%)</span>
+                  <span>{t(lang, "Service Charge", "सेवा शुल्क")} ({restaurant.serviceChargeRate}%)</span>
                   <span>{formatCurrency(serviceChargeAmount, restaurant.currency)}</span>
                 </div>
               )}
               <div className="flex justify-between font-bold text-gray-900 text-lg pt-2 border-t mt-2">
-                <span>Total</span>
+                <span>{t(lang, "Total", "कुल")}</span>
                 <span className="text-orange-600">{formatCurrency(total, restaurant.currency)}</span>
               </div>
             </div>
@@ -216,7 +201,7 @@ export default function CartClient({ restaurant, table, tableSession }: Props) {
             {/* Table info */}
             <div className="bg-orange-50 border border-orange-100 rounded-2xl p-4 text-center">
               <p className="text-sm text-orange-700">
-                Ordering for <strong>Table {table.tableNumber}</strong> at {restaurant.name}
+                {t(lang, "Ordering for", "अर्डर गर्दै")} <strong>{t(lang, `Table ${table.tableNumber}`, `टेबल ${table.tableNumber}`)}</strong> at {restaurant.name}
               </p>
             </div>
           </div>
@@ -233,9 +218,9 @@ export default function CartClient({ restaurant, table, tableSession }: Props) {
               className="w-full bg-orange-500 hover:bg-orange-600 text-white h-14 rounded-2xl text-base font-bold shadow-xl shadow-orange-500/30"
             >
               {placing ? (
-                <><Loader2 className="w-5 h-5 animate-spin mr-2" /> Placing Order...</>
+                <><Loader2 className="w-5 h-5 animate-spin mr-2" /> {t(lang, "Placing Order...", "अर्डर राख्दै...")}</>
               ) : (
-                `Place Order · ${formatCurrency(total, restaurant.currency)}`
+                `${t(lang, "Place Order", "अर्डर गर्नुहोस्")} · ${formatCurrency(total, restaurant.currency)}`
               )}
             </Button>
           </div>
