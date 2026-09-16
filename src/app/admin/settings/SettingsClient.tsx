@@ -11,7 +11,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/components/ui/toast";
 import { Switch } from "@/components/ui/switch";
-import { Loader2, Save, Percent, Languages } from "lucide-react";
+import { Loader2, Save, Percent, Languages, CalendarCheck } from "lucide-react";
 import { LANGUAGE_OPTIONS } from "@/lib/i18n";
 
 const settingsSchema = z.object({
@@ -27,6 +27,7 @@ const settingsSchema = z.object({
   isTaxEnabled: z.boolean().default(false),
   serviceChargeRate: z.coerce.number().min(0).max(100).default(0),
   isServiceChargeEnabled: z.boolean().default(false),
+  bookingsEnabled: z.boolean().default(false),
 });
 
 type SettingsForm = z.infer<typeof settingsSchema>;
@@ -46,6 +47,7 @@ interface Restaurant {
   isTaxEnabled: boolean;
   serviceChargeRate: number;
   isServiceChargeEnabled: boolean;
+  bookingsEnabled: boolean;
 }
 
 interface Props {
@@ -69,11 +71,13 @@ export default function SettingsClient({ restaurant }: Props) {
       isTaxEnabled: restaurant.isTaxEnabled ?? false,
       serviceChargeRate: restaurant.serviceChargeRate ?? 0,
       isServiceChargeEnabled: restaurant.isServiceChargeEnabled ?? false,
+      bookingsEnabled: restaurant.bookingsEnabled ?? false,
     },
   });
 
   const isTaxEnabled = watch("isTaxEnabled");
   const isServiceChargeEnabled = watch("isServiceChargeEnabled");
+  const bookingsEnabled = watch("bookingsEnabled");
 
   const onSubmit = async (data: SettingsForm) => {
     const res = await fetch("/api/admin/settings", {
@@ -179,6 +183,27 @@ export default function SettingsClient({ restaurant }: Props) {
                 <Switch checked={isServiceChargeEnabled} onCheckedChange={(val) => setValue("isServiceChargeEnabled", val)} />
               </div>
               {isServiceChargeEnabled && <div className="space-y-1.5 mt-3"><Label htmlFor="serviceChargeRate">Service Charge (%)</Label><Input id="serviceChargeRate" type="number" step="0.5" min="0" max="100" {...register("serviceChargeRate")} className="max-w-xs" /></div>}
+            </div>
+
+            <div className="sm:col-span-2 pt-3 border-t">
+              <h3 className="text-sm font-semibold text-gray-700 flex items-center gap-1.5 mb-3">
+                <CalendarCheck className="w-4 h-4 text-orange-500" /> Booking Settings
+              </h3>
+              <div className="flex items-center justify-between p-3 bg-gray-50 rounded-xl mb-3">
+                <div>
+                  <p className="text-sm font-medium text-gray-700">Enable Bookings</p>
+                  <p className="text-xs text-gray-400 mt-0.5">Lets customers book services (rooms, pool, adventures) from the menu</p>
+                </div>
+                <Switch
+                  checked={bookingsEnabled}
+                  onCheckedChange={(val) => setValue("bookingsEnabled", val)}
+                />
+              </div>
+              {bookingsEnabled && (
+                <p className="text-xs text-gray-400">
+                  Super-admin has approved this feature. Manage your bookable services and incoming requests under Bookings in the sidebar.
+                </p>
+              )}
             </div>
           </div>
 

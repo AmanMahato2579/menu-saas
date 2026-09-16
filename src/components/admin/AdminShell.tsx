@@ -11,10 +11,11 @@ interface AdminShellProps {
   user: AdminUser;
   initialUnreadCount: number;
   language?: string;
+  bookingsEnabled?: boolean;
   children: React.ReactNode;
 }
 
-export default function AdminShell({ user, initialUnreadCount, language = "EN", children }: AdminShellProps) {
+export default function AdminShell({ user, initialUnreadCount, language = "EN", bookingsEnabled = false, children }: AdminShellProps) {
   const pathname = usePathname();
   const [openedForPath, setOpenedForPath] = useState<string | null>(null);
   const sidebarOpen = openedForPath === pathname;
@@ -44,7 +45,7 @@ export default function AdminShell({ user, initialUnreadCount, language = "EN", 
         />
       )}
 
-      <AdminSidebar user={user} open={sidebarOpen} onNavigate={closeSidebar} language={language} />
+      <AdminSidebar user={user} open={sidebarOpen} onNavigate={closeSidebar} language={language} bookingsEnabled={bookingsEnabled} />
 
       <div className="flex-1 flex flex-col overflow-hidden min-w-0">
         <AdminHeader

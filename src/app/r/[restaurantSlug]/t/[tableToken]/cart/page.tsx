@@ -28,6 +28,7 @@ export default async function CartPage({ params }: Props) {
         taxRate: Number(restaurant.taxRate),
         isServiceChargeEnabled: restaurant.isServiceChargeEnabled,
         serviceChargeRate: Number(restaurant.serviceChargeRate),
+        language: restaurant.language,
       }}
       table={{ id: table.id, tableNumber: table.tableNumber }}
       tableSession={{

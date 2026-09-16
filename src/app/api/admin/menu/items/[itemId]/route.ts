@@ -13,6 +13,7 @@ const patchSchema = z.object({
   isAvailable: z.boolean().optional(),
   hasSpicyOption: z.boolean().optional(),
   hasNoteOption: z.boolean().optional(),
+  requiresPreparation: z.boolean().optional(),
   ingredients: z.string().optional().nullable(),
   discountPercent: z.coerce.number().int().min(0).max(100).optional(),
   variants: z.array(z.object({

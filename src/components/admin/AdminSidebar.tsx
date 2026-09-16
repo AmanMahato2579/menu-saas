@@ -15,6 +15,8 @@ import {
   LogOut,
   ChefHat,
   Bell,
+  HandPlatter,
+  CalendarCheck,
 } from "lucide-react";
 import InstallPWA from "./InstallPWA";
 
@@ -25,16 +27,21 @@ interface AdminSidebarProps {
   /** Called when a nav link is clicked, so the mobile drawer can close itself. */
   onNavigate?: () => void;
   language?: string;
+  bookingsEnabled?: boolean;
 }
 
-export default function AdminSidebar({ user, open = false, onNavigate, language = "EN" }: AdminSidebarProps) {
+export default function AdminSidebar({ user, open = false, onNavigate, language = "EN", bookingsEnabled = false }: AdminSidebarProps) {
   const pathname = usePathname();
 
   const navItems = [
     { href: "/admin", label: t(language, "Dashboard", "ड्यासबोर्ड"), icon: LayoutDashboard, exact: true },
+    { href: "/admin/service", label: t(language, "Take Order", "अर्डर लिनुहोस्"), icon: HandPlatter },
     { href: "/admin/orders", label: t(language, "Orders", "अर्डरहरू"), icon: ClipboardList },
     { href: "/admin/menu", label: t(language, "Menu", "मेनु"), icon: UtensilsCrossed },
     { href: "/admin/tables", label: t(language, "Tables", "टेबलहरू"), icon: QrCode },
+    ...(bookingsEnabled
+      ? [{ href: "/admin/bookings", label: t(language, "Bookings", "बुकिङहरू"), icon: CalendarCheck } as const]
+      : []),
     { href: "/admin/notifications", label: t(language, "Notifications", "सूचनाहरू"), icon: Bell },
     { href: "/admin/settings", label: t(language, "Settings", "सेटिङहरू"), icon: Settings },
   ];

@@ -45,13 +45,17 @@ export default function PushNotificationPrompt({ language = "EN" }: { language?:
 
   React.useEffect(() => {
     if (!vapidPublicKey || !pushIsSupported()) return;
-    if (Notification.permission === "default") {
-      setVisible(true);
-    } else if (Notification.permission === "granted") {
-      // Already granted earlier (or on a previous device session) — keep the
-      // subscription alive silently, no need to prompt again.
-      subscribeToPush(vapidPublicKey).catch(() => {});
-    }
+    // Deferred to satisfy React Compiler (no sync setState inside an effect).
+    const id = setTimeout(() => {
+      if (Notification.permission === "default") {
+        setVisible(true);
+      } else if (Notification.permission === "granted") {
+        // Already granted earlier (or on a previous device session) — keep the
+        // subscription alive silently, no need to prompt again.
+        subscribeToPush(vapidPublicKey).catch(() => {});
+      }
+    }, 0);
+    return () => clearTimeout(id);
   }, [vapidPublicKey]);
 
   const handleEnable = async () => {
