@@ -656,8 +656,7 @@ export async function cleanupExpiredOrderHistory(restaurantId?: string) {
 }
 
 export async function getDashboardStats(restaurantId: string) {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
+  const today = startOfBusinessDay();
 
   const [todayOrders, pendingCount, preparingItems, activeTables, totalTables, todaySessions] = await Promise.all([
     prisma.order.count({
