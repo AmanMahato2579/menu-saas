@@ -2,6 +2,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { loadOperationalRestaurant, getEffectiveAccess, effectiveTableLimit } from "@/lib/plans";
 
 async function getRestaurantId(): Promise<string | null> {
   const session = await auth();
@@ -31,16 +32,20 @@ export async function POST(req: Request) {
   const parsed = tableSchema.safeParse(body);
   if (!parsed.success) return NextResponse.json({ error: "Invalid data" }, { status: 400 });
 
-  const [restaurant, existing, existingCount] = await Promise.all([
-    prisma.restaurant.findUnique({ where: { id: restaurantId }, select: { tableLimit: true } }),
+  const restaurant = await loadOperationalRestaurant(restaurantId);
+  if (!restaurant) return NextResponse.json({ error: "Restaurant not found" }, { status: 404 });
+
+  const access = await getEffectiveAccess(restaurant);
+  const limit = effectiveTableLimit(access);
+
+  const [existing, existingCount] = await Promise.all([
     prisma.table.findFirst({ where: { restaurantId, tableNumber: parsed.data.tableNumber } }),
     prisma.table.count({ where: { restaurantId } }),
   ]);
-  if (!restaurant) return NextResponse.json({ error: "Restaurant not found" }, { status: 404 });
   if (existing) {
     return NextResponse.json({ error: `Table ${parsed.data.tableNumber} already exists` }, { status: 409 });
   }
-  if (existingCount >= restaurant.tableLimit) return NextResponse.json({ error: `Table limit reached (${restaurant.tableLimit}). Contact the platform administrator to increase it.` }, { status: 403 });
+  if (existingCount >= limit) return NextResponse.json({ error: `Table limit reached (${limit}). Contact the platform administrator to increase it.` }, { status: 403 });
 
   const table = await prisma.table.create({
     data: { restaurantId, tableNumber: parsed.data.tableNumber },

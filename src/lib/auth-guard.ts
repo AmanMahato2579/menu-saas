@@ -2,6 +2,7 @@ import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { UserRole } from "@prisma/client";
 import type { AdminUser } from "@/types";
+import { loadOperationalRestaurant, isRestaurantOperational } from "@/lib/plans";
 
 export async function requireAuth(): Promise<AdminUser> {
   const session = await auth();
@@ -25,12 +26,8 @@ export async function requireRestaurantAdmin(): Promise<AdminUser> {
     redirect("/login");
   }
   
-  const restaurant = await import("./prisma").then(m => m.prisma.restaurant.findUnique({
-    where: { id: user.restaurantId! },
-    select: { isActive: true }
-  }));
-  
-  if (!restaurant || !restaurant.isActive) {
+  const restaurant = await loadOperationalRestaurant(user.restaurantId!);
+  if (!restaurant || !isRestaurantOperational(restaurant)) {
     redirect("/inactive");
   }
   

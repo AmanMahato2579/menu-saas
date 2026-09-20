@@ -1,8 +1,8 @@
-import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { createOrder } from "@/lib/db";
+import { loadOperationalRestaurant, getEffectiveAccess, canOrder } from "@/lib/plans";
 
 const orderSchema = z.object({
   restaurantId: z.string(),
@@ -28,6 +28,15 @@ export async function POST(req: Request) {
   }
 
   const { restaurantId, tableSessionId, customerToken, items } = parsed.data;
+
+  const restaurant = await loadOperationalRestaurant(restaurantId);
+  if (!restaurant || !restaurant.isActive) {
+    return NextResponse.json({ error: "Restaurant is unavailable" }, { status: 403 });
+  }
+  const access = await getEffectiveAccess(restaurant);
+  if (!canOrder(access)) {
+    return NextResponse.json({ error: "Ordering is not available at this restaurant." }, { status: 403 });
+  }
 
   // Validate the table session belongs to this restaurant (tenant isolation, no trust in client)
   const session = await prisma.tableSession.findFirst({

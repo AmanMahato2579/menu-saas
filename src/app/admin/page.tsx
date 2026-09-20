@@ -17,7 +17,10 @@ export default async function AdminDashboard() {
 
   const plan = restaurant?.plan ?? "STAR";
   const lang = restaurant?.language ?? "EN";
-  const planColor = plan === "GOLD" ? "bg-yellow-50 text-yellow-700 border-yellow-200" : plan === "SILVER" ? "bg-gray-50 text-gray-600 border-gray-300" : plan === "BRONZE" ? "bg-orange-50 text-orange-700 border-orange-200" : "bg-purple-50 text-purple-700 border-purple-200";
+  const planColor =
+    plan === "SILVER" ? "bg-gray-50 text-gray-600 border-gray-300"
+    : plan === "BRONZE" ? "bg-orange-50 text-orange-700 border-orange-200"
+    : "bg-purple-50 text-purple-700 border-purple-200";
 
   const statCards = [
     { label: t(lang, "Revenue Today", "आजको कमाइ"), value: formatCurrency(Number(stats.todaySales)), icon: Wallet, color: "text-green-600", bg: "bg-green-50" },

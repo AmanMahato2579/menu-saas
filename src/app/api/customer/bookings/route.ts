@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { createBooking, getBookableSlots, getCustomerBookings } from "@/lib/db";
+import { loadOperationalRestaurant, getEffectiveAccess, canBook } from "@/lib/plans";
 
 const createSchema = z.object({
   token: z.string().min(1),
@@ -26,6 +27,22 @@ export async function POST(req: Request) {
     where: { qrToken: token, isActive: true, restaurant: { isActive: true } },
   });
   if (!table) return NextResponse.json({ error: "Table is unavailable" }, { status: 404 });
+
+  const restaurantMetadata = await prisma.restaurant.findUnique({
+    where: { id: table.restaurantId },
+    select: {
+      plan: true,
+      featureOverrides: true,
+      limitOverrides: true,
+      starNumber: true,
+      bookingsEnabled: true,
+    },
+  });
+  if (!restaurantMetadata) return NextResponse.json({ error: "Restaurant is unavailable" }, { status: 404 });
+  const access = await getEffectiveAccess(restaurantMetadata);
+  if (!canBook(access, restaurantMetadata.bookingsEnabled)) {
+    return NextResponse.json({ error: "Bookings are not available at this restaurant." }, { status: 403 });
+  }
 
   // Re-check availability before insert to give a friendly error message.
   const slots = await getBookableSlots(serviceId, table.restaurantId, bookingDate);
@@ -60,6 +77,22 @@ export async function GET(req: Request) {
     where: { qrToken: token, isActive: true, restaurant: { isActive: true } },
   });
   if (!table) return NextResponse.json({ error: "Table is unavailable" }, { status: 404 });
+
+  const restaurantMetadata = await prisma.restaurant.findUnique({
+    where: { id: table.restaurantId },
+    select: {
+      plan: true,
+      featureOverrides: true,
+      limitOverrides: true,
+      starNumber: true,
+      bookingsEnabled: true,
+    },
+  });
+  if (!restaurantMetadata) return NextResponse.json({ error: "Restaurant is unavailable" }, { status: 404 });
+  const access = await getEffectiveAccess(restaurantMetadata);
+  if (!canBook(access, restaurantMetadata.bookingsEnabled)) {
+    return NextResponse.json({ error: "Bookings are not available at this restaurant." }, { status: 403 });
+  }
 
   const bookings = await getCustomerBookings(table.restaurantId, phone);
   return NextResponse.json(bookings);

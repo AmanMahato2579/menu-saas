@@ -45,6 +45,18 @@ model Restaurant {
   createdAt              DateTime           @default(now())
   updatedAt              DateTime           @updatedAt
   plan                   String             @default("STAR")
+  // Subscription / plan management
+  subscriptionStatus     String             @default("ACTIVE") // ACTIVE | EXPIRED | CANCELLED | SUSPENDED
+  subscriptionStart      DateTime?
+  subscriptionExpiresAt  DateTime?
+  neverExpires           Boolean            @default(true)
+  autoOff                Boolean            @default(true)
+  // Star (first-10 founding customers) — starNumber 1..10 marks STAR status
+  starNumber             Int?
+  starNote               String?
+  // Lightweight per-customer overrides (JSON blobs, no relational explosion)
+  featureOverrides       String?
+  limitOverrides         String?
   categories             Category[]
   menuItems              MenuItem[]
   notifications          Notification[]
@@ -341,4 +353,44 @@ enum BookingStatus {
   REJECTED
   COMPLETED
   CANCELLED
+}
+
+// Editable plan catalog. featureKeys is a JSON array (or ["ALL_CURRENT_FEATURES"]
+// for STAR so new platform features are picked up automatically). limitKeys is a
+// JSON object such as { "qrTables": 20 }. Future plans (e.g. GOLD) are stored here
+// with isVisible=false until they are ready to be exposed.
+model Plan {
+  id           String    @id
+  name         String
+  description  String?
+  priceMonthly Decimal?  @db.Decimal(10, 2)
+  priceYearly  Decimal?  @db.Decimal(10, 2)
+  featureKeys  String    @default("[]")
+  limitKeys    String    @default("{}")
+  sortOrder    Int       @default(0)
+  isVisible    Boolean   @default(true)
+  isActive     Boolean   @default(true)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+}
+
+// Lightweight audit trail for important Super Admin actions.
+model AdminActivity {
+  id             String   @id @default(cuid())
+  action         String
+  restaurantId   String?
+  restaurantName String?
+  detail         String?
+  actorEmail     String?
+  createdAt      DateTime @default(now())
+
+  @@index([restaurantId])
+  @@index([createdAt])
+}
+
+// Small key/value store for platform-level settings (defaults, branding).
+model PlatformSetting {
+  key       String   @id
+  value     String
+  updatedAt DateTime @updatedAt
 }

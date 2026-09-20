@@ -3,7 +3,45 @@ import bcrypt from "bcryptjs";
 
 const prisma = new PrismaClient();
 
+// Mirrors the plan catalog seeded by the 20260920000000 migration so that a
+// `prisma db push` environment (no migrations) still has working plan rows.
+// The runtime falls back to built-in defaults when a row is missing anyway.
+const DEFAULT_PLANS = [
+  {
+    id: "BRONZE",
+    name: "Bronze",
+    description: "Digital menu & restaurant profile. View-only — no ordering.",
+    featureKeys: '["restaurant_profile","digital_menu","menu_management","qr_tables"]',
+    limitKeys: '{"qrTables":10}',
+    sortOrder: 10,
+  },
+  {
+    id: "SILVER",
+    name: "Silver",
+    description: "Everything in Bronze, plus full QR ordering, table ordering and order management.",
+    featureKeys: '["restaurant_profile","digital_menu","menu_management","qr_tables","ordering","table_ordering","order_management","kitchen_workflow","order_history"]',
+    limitKeys: '{"qrTables":20}',
+    sortOrder: 20,
+  },
+  {
+    id: "STAR",
+    name: "Star",
+    description: "Founding customer. Access to ALL current and future MenuQR features.",
+    featureKeys: '["ALL_CURRENT_FEATURES"]',
+    limitKeys: '{"qrTables":50}',
+    sortOrder: 30,
+  },
+];
+
 async function main() {
+  for (const plan of DEFAULT_PLANS) {
+    await prisma.plan.upsert({
+      where: { id: plan.id },
+      update: { isVisible: true, isActive: true },
+      create: { ...plan, isVisible: true, isActive: true },
+    });
+  }
+
   const superAdminEmail = "admin@menusaas.com";
   const passwordHash = await bcrypt.hash("Admin123!", 10);
 
@@ -40,6 +78,12 @@ async function main() {
         serviceChargeRate: 10,
         isServiceChargeEnabled: true,
         isActive: true,
+        plan: "STAR",
+        starNumber: 1,
+        subscriptionStatus: "ACTIVE",
+        subscriptionStart: new Date(),
+        neverExpires: true,
+        autoOff: true,
       },
     });
 

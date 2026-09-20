@@ -2,6 +2,7 @@ import { auth } from "@/lib/auth";
 import { createWaiterOrder } from "@/lib/db";
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { loadOperationalRestaurant, getEffectiveAccess, canOrder } from "@/lib/plans";
 
 const waiterOrderSchema = z.object({
   items: z.array(
@@ -22,6 +23,13 @@ export async function POST(
   const session = await auth();
   const restaurantId = (session?.user as { restaurantId?: string | null })?.restaurantId;
   if (!restaurantId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  const restaurant = await loadOperationalRestaurant(restaurantId);
+  if (!restaurant) return NextResponse.json({ error: "Restaurant unavailable" }, { status: 403 });
+  const access = await getEffectiveAccess(restaurant);
+  if (!canOrder(access)) {
+    return NextResponse.json({ error: "Ordering is not enabled for your plan." }, { status: 403 });
+  }
 
   const { tableId } = await params;
 
