@@ -3,11 +3,13 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { createOrder } from "@/lib/db";
 import { loadOperationalRestaurant, getEffectiveAccess, canOrder } from "@/lib/plans";
+import { rateLimit, clientIp } from "@/lib/rate-limit";
 
 const orderSchema = z.object({
   restaurantId: z.string(),
   tableSessionId: z.string(),
   customerToken: z.string(),
+  clientRequestId: z.string().optional(),
   items: z.array(
     z.object({
       menuItemId: z.string(),
@@ -21,13 +23,17 @@ const orderSchema = z.object({
 
 export async function POST(req: Request) {
   // Customer endpoint - no auth required, but we validate everything server-side
+  if (!rateLimit(`order:${clientIp(req)}`, 20, 60_000)) {
+    return NextResponse.json({ error: "Too many attempts. Try again in a minute." }, { status: 429 });
+  }
+
   const body = await req.json();
   const parsed = orderSchema.safeParse(body);
   if (!parsed.success) {
     return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
   }
 
-  const { restaurantId, tableSessionId, customerToken, items } = parsed.data;
+  const { restaurantId, tableSessionId, customerToken, items, clientRequestId } = parsed.data;
 
   const restaurant = await loadOperationalRestaurant(restaurantId);
   if (!restaurant || !restaurant.isActive) {
@@ -51,9 +57,29 @@ export async function POST(req: Request) {
   }
 
   try {
-    const order = await createOrder({ restaurantId, tableSessionId, customerToken, items });
+    if (clientRequestId) {
+      const existing = await prisma.order.findFirst({
+        where: { tableSessionId, clientRequestId },
+        select: { id: true, orderNumber: true },
+      });
+      if (existing) {
+        return NextResponse.json({ ok: true, duplicate: true, id: existing.id, orderNumber: existing.orderNumber });
+      }
+    }
+
+    const order = await createOrder({ restaurantId, tableSessionId, customerToken, items, clientRequestId });
     return NextResponse.json(order, { status: 201 });
   } catch (err) {
+    const prismaCode = (err as { code?: string } | null)?.code;
+    if (prismaCode === "P2002" && clientRequestId) {
+      const existing = await prisma.order.findFirst({
+        where: { tableSessionId, clientRequestId },
+        select: { id: true, orderNumber: true },
+      });
+      if (existing) {
+        return NextResponse.json({ ok: true, duplicate: true, id: existing.id, orderNumber: existing.orderNumber });
+      }
+    }
     const msg = err instanceof Error ? err.message : String(err);
     return NextResponse.json({ error: msg }, { status: 400 });
   }

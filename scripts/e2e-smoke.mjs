@@ -173,13 +173,14 @@ if (gotRefs) {
     created.sessions.push(r.body.id);
   });
 
+  const customerToken = `e2e-${Date.now()}`;
   if (tableSessionId) {
     await step("place order O1 (201, PENDING, server pricing)", async () => {
       const r = await req("POST", "/api/customer/orders", {
         json: {
           restaurantId: demoRestaurantId,
           tableSessionId,
-          customerToken: `e2e-${Date.now()}`,
+          customerToken,
           items: [
             { menuItemId: refs.itemA.id, variantId: refs.itemA.variantId, quantity: 2, isSpicy: false, note: "" },
             { menuItemId: refs.itemB.id, quantity: 1, isSpicy: false, note: "" },
@@ -214,7 +215,7 @@ if (gotRefs) {
         json: {
           restaurantId: demoRestaurantId,
           tableSessionId,
-          customerToken: `e2e-${Date.now()}`,
+          customerToken,
           items: [{ menuItemId: refs.itemA.id, quantity: 1, isSpicy: false, note: "" }],
         },
       });

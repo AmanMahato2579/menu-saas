@@ -22,6 +22,7 @@ const ACTIONS: Record<string, string> = {
   bookings_enabled: "Bookings enabled",
   bookings_disabled: "Bookings disabled",
   password_reset: "Owner password reset",
+  change_password: "Owner password changed",
   plan_updated: "Plan configuration updated",
   settings_updated: "Platform settings updated",
   subscription_auto_off: "Subscription auto-off triggered",

@@ -20,6 +20,19 @@ function retentionCutoff(): Date {
   return new Date(Date.now() - ORDER_HISTORY_RETENTION_HOURS * 60 * 60 * 1000);
 }
 
+/** Round a Prisma Decimal to 2 decimal places (HALF_UP) for storage/display. */
+function roundMoney(value: Prisma.Decimal): Prisma.Decimal {
+  return value.toDecimalPlaces(2, Prisma.Decimal.ROUND_HALF_UP);
+}
+
+/** Round a JS number to 2 decimal places for display. */
+function roundMoneyNumber(value: number): number {
+  return Math.round((value + Number.EPSILON) * 100) / 100;
+}
+
+/** Client type that works with both the shared prisma instance and an interactive transaction. */
+type DbClient = Prisma.TransactionClient | typeof prisma;
+
 // "Today" for admin analytics and the notifications inbox is the current
 // calendar day in Nepal (UTC+05:45, no DST). Resolved via the Intl API so the
 // boundary is identical on every host regardless of the server's timezone.
@@ -127,8 +140,10 @@ export async function getPublicMenu(restaurantId: string) {
 
 // ─── Order queries ────────────────────────────────────────────────────────────
 
-export async function getNextOrderNumber(restaurantId: string): Promise<number> {
-  const seq = await prisma.orderSequence.upsert({
+export async function getNextOrderNumber(restaurantId: string, client: DbClient = prisma): Promise<number> {
+  // Upserted increment on one locked row = atomic issuance, and because it runs
+  // inside the order's transaction, a rolled-back order returns its number.
+  const seq = await client.orderSequence.upsert({
     where: { restaurantId },
     update: { lastNumber: { increment: 1 } },
     create: { restaurantId, lastNumber: 1001 },
@@ -149,6 +164,7 @@ export interface CreateOrderInput {
   tableSessionId: string;
   customerToken: string;
   items: NewOrderInputItem[];
+  clientRequestId?: string | null;
 }
 
 /**
@@ -156,9 +172,9 @@ export interface CreateOrderInput {
  * build OrderItem create rows. Shared by the customer and waiter order paths so
  * both always derive prices from the exact same menu catalogue.
  */
-async function buildOrderItems(restaurantId: string, items: NewOrderInputItem[]) {
+async function buildOrderItems(restaurantId: string, items: NewOrderInputItem[], client: DbClient = prisma) {
   const menuItemIds = [...new Set(items.map((i) => i.menuItemId))];
-  const menuItems = await prisma.menuItem.findMany({
+  const menuItems = await client.menuItem.findMany({
     where: {
       id: { in: menuItemIds },
       restaurantId, // tenant isolation
@@ -173,7 +189,7 @@ async function buildOrderItems(restaurantId: string, items: NewOrderInputItem[])
   const menuItemMap = new Map(menuItems.map((m) => [m.id, m]));
   const variantIds = items.flatMap((item) => (item.variantId ? [item.variantId] : []));
   const variants = variantIds.length
-    ? await prisma.menuItemVariant.findMany({
+    ? await client.menuItemVariant.findMany({
         where: { id: { in: variantIds }, isAvailable: true },
       })
     : [];
@@ -188,8 +204,8 @@ async function buildOrderItems(restaurantId: string, items: NewOrderInputItem[])
     }
     const basePrice = variant?.price ?? menuItem.price;
     const discountMultiplier = new Prisma.Decimal(100 - menuItem.discountPercent).div(100);
-    const unitPrice = basePrice.mul(discountMultiplier);
-    const subtotal = unitPrice.mul(item.quantity);
+    const unitPrice = roundMoney(basePrice.mul(discountMultiplier));
+    const subtotal = roundMoney(unitPrice.mul(item.quantity));
     return {
       menuItem: { requiresPreparation: menuItem.requiresPreparation },
       data: {
@@ -206,52 +222,82 @@ async function buildOrderItems(restaurantId: string, items: NewOrderInputItem[])
     };
   });
 
-  const subtotalSum = builds.reduce((sum, b) => sum.add(b.data.subtotal), new Prisma.Decimal(0));
+  const subtotalSum = roundMoney(
+    builds.reduce((sum, b) => sum.add(b.data.subtotal), new Prisma.Decimal(0))
+  );
   return { builds, subtotalSum };
 }
 
-async function computeTax(subtotal: Prisma.Decimal, restaurantId: string) {
-  const restaurant = await prisma.restaurant.findUnique({
+/**
+ * Session-aware tax + service charge. Both are only applied when the
+ * restaurant enabled them AND the customer session asked for them (the waiter
+ * toggles applyTax / applyServiceCharge per session).
+ */
+async function computeTaxCharges(
+  subtotal: Prisma.Decimal,
+  restaurantId: string,
+  session: { applyTax: boolean; applyServiceCharge: boolean },
+  client: DbClient = prisma
+) {
+  const restaurant = await client.restaurant.findUnique({
     where: { id: restaurantId },
-    select: { isTaxEnabled: true, taxRate: true },
+    select: { isTaxEnabled: true, taxRate: true, isServiceChargeEnabled: true, serviceChargeRate: true },
   });
-  if (restaurant?.isTaxEnabled && restaurant.taxRate) {
-    return subtotal.mul(restaurant.taxRate).div(100);
-  }
-  return new Prisma.Decimal(0);
+  const taxAmount =
+    restaurant?.isTaxEnabled && session.applyTax && restaurant.taxRate
+      ? roundMoney(subtotal.mul(restaurant.taxRate).div(100))
+      : new Prisma.Decimal(0);
+  const serviceChargeAmount =
+    restaurant?.isServiceChargeEnabled && session.applyServiceCharge && restaurant.serviceChargeRate
+      ? roundMoney(subtotal.mul(restaurant.serviceChargeRate).div(100))
+      : new Prisma.Decimal(0);
+  return { taxAmount, serviceChargeAmount };
 }
 
 export async function createOrder(input: CreateOrderInput) {
-  const { restaurantId, tableSessionId, customerToken, items } = input;
-  const session = await prisma.tableSession.findFirst({
-    where: { id: tableSessionId, restaurantId, status: "ACTIVE" },
-  });
-  if (!session) throw new Error("Invalid or expired session.");
+  const { restaurantId, tableSessionId, customerToken, items, clientRequestId } = input;
 
-  const { builds, subtotalSum } = await buildOrderItems(restaurantId, items);
-  const taxAmount = await computeTax(subtotalSum, restaurantId);
-  const total = subtotalSum.add(taxAmount);
+  // One transaction, one serialised order: the session row is locked
+  // (SELECT FOR UPDATE) so a concurrently-closing session can never swallow a
+  // fresh order, and the issued order number is rolled back on failure.
+  const order = await prisma.$transaction(async (tx) => {
+    await tx.$queryRaw`
+      SELECT id FROM "TableSession"
+      WHERE id = ${tableSessionId} AND "restaurantId" = ${restaurantId}
+      FOR UPDATE`;
 
-  const orderNumber = await getNextOrderNumber(restaurantId);
+    const session = await tx.tableSession.findFirst({
+      where: { id: tableSessionId, restaurantId, status: "ACTIVE" },
+      select: { id: true, applyTax: true, applyServiceCharge: true },
+    });
+    if (!session) throw new Error("Invalid or expired session.");
 
-  const order = await prisma.order.create({
-    data: {
-      orderNumber,
-      restaurantId,
-      tableSessionId,
-      customerToken,
-      source: "CUSTOMER",
-      subtotal: subtotalSum,
-      taxAmount,
-      total,
-      orderItems: {
-        create: builds.map((b) => b.data),
+    const { builds, subtotalSum } = await buildOrderItems(restaurantId, items, tx);
+    const { taxAmount, serviceChargeAmount } = await computeTaxCharges(subtotalSum, restaurantId, session, tx);
+    const total = roundMoney(subtotalSum.add(taxAmount).add(serviceChargeAmount));
+    const orderNumber = await getNextOrderNumber(restaurantId, tx);
+
+    return tx.order.create({
+      data: {
+        orderNumber,
+        restaurantId,
+        tableSessionId,
+        customerToken,
+        source: "CUSTOMER",
+        clientRequestId: clientRequestId?.trim() || null,
+        subtotal: subtotalSum,
+        taxAmount,
+        serviceChargeAmount,
+        total,
+        orderItems: {
+          create: builds.map((b) => b.data),
+        },
       },
-    },
-    include: {
-      orderItems: true,
-      tableSession: { include: { table: true } },
-    },
+      include: {
+        orderItems: true,
+        tableSession: { include: { table: true } },
+      },
+    });
   });
 
   const tableNumber = order.tableSession?.table?.tableNumber;
@@ -262,8 +308,8 @@ export async function createOrder(input: CreateOrderInput) {
   await createNotification({
     restaurantId,
     type: "NEW_ORDER",
-    title: newOrderTitle(lang, orderNumber),
-    message: newOrderMessage(lang, { orderNumber, tableNumber, itemSummary }),
+    title: newOrderTitle(lang, order.orderNumber),
+    message: newOrderMessage(lang, { orderNumber: order.orderNumber, tableNumber, itemSummary }),
     link: `/admin/orders?sessionId=${tableSessionId}&orderId=${order.id}`,
   });
 
@@ -284,44 +330,65 @@ interface WaiterOrderInput {
  */
 export async function createWaiterOrder(input: WaiterOrderInput) {
   const { restaurantId, tableId, items } = input;
-  const table = await prisma.table.findFirst({
-    where: { id: tableId, restaurantId, isActive: true },
-  });
-  if (!table) throw new Error("Table not found.");
 
-  const session = await ensureTableSession(tableId, restaurantId);
+  // Per-table serialisation + a single transaction: concurrent waiter orders on
+  // the same table share one active session, and an order can never land in a
+  // session that is closing at the same moment.
+  const order = await prisma.$transaction(async (tx) => {
+    await tx.$queryRaw`
+      SELECT id FROM "Table"
+      WHERE id = ${tableId} AND "restaurantId" = ${restaurantId} AND "isActive" = true
+      FOR UPDATE`;
 
-  const { builds, subtotalSum } = await buildOrderItems(restaurantId, items);
-  const taxAmount = await computeTax(subtotalSum, restaurantId);
-  const total = subtotalSum.add(taxAmount);
-  const orderNumber = await getNextOrderNumber(restaurantId);
+    const table = await tx.table.findFirst({
+      where: { id: tableId, restaurantId, isActive: true },
+    });
+    if (!table) throw new Error("Table not found.");
 
-  const order = await prisma.order.create({
-    data: {
-      orderNumber,
-      restaurantId,
-      tableSessionId: session.id,
-      customerToken: "waiter",
-      source: "WAITER",
-      status: "ACCEPTED",
-      subtotal: subtotalSum,
-      taxAmount,
-      total,
-      orderItems: {
-        create: builds.map((b) => {
-          const instant = !b.menuItem.requiresPreparation;
-          return {
-            ...b.data,
-            status: instant ? "SERVED" : "NEW",
-            servedQuantity: instant ? b.data.quantity : 0,
-          };
-        }),
+    const existingSession = await tx.tableSession.findFirst({
+      where: { tableId, restaurantId, status: "ACTIVE" },
+      select: { id: true, applyTax: true, applyServiceCharge: true },
+    });
+    const session =
+      existingSession ??
+      (await tx.tableSession.create({
+        data: { tableId, restaurantId, customerName: null },
+        select: { id: true, applyTax: true, applyServiceCharge: true },
+      }));
+
+    const { builds, subtotalSum } = await buildOrderItems(restaurantId, items, tx);
+    const { taxAmount, serviceChargeAmount } = await computeTaxCharges(subtotalSum, restaurantId, session, tx);
+    const total = roundMoney(subtotalSum.add(taxAmount).add(serviceChargeAmount));
+    const orderNumber = await getNextOrderNumber(restaurantId, tx);
+
+    return tx.order.create({
+      data: {
+        orderNumber,
+        restaurantId,
+        tableSessionId: session.id,
+        customerToken: "waiter",
+        source: "WAITER",
+        status: "ACCEPTED",
+        subtotal: subtotalSum,
+        taxAmount,
+        serviceChargeAmount,
+        total,
+        orderItems: {
+          create: builds.map((b) => {
+            const instant = !b.menuItem.requiresPreparation;
+            return {
+              ...b.data,
+              status: instant ? "SERVED" : "NEW",
+              servedQuantity: instant ? b.data.quantity : 0,
+            };
+          }),
+        },
       },
-    },
-    include: {
-      orderItems: true,
-      tableSession: { include: { table: true } },
-    },
+      include: {
+        orderItems: true,
+        tableSession: { include: { table: true } },
+      },
+    });
   });
 
   return order;
@@ -510,7 +577,7 @@ export async function setOrderItemQuantity(itemId: string, restaurantId: string,
   const unitPrice = new Prisma.Decimal(item.unitPrice);
   const updated = await prisma.orderItem.update({
     where: { id: itemId },
-    data: { quantity, subtotal: unitPrice.mul(quantity) },
+    data: { quantity, subtotal: roundMoney(unitPrice.mul(quantity)) },
   });
   await recomputeOrderTotals(item.order.id, restaurantId);
   return updated;
@@ -520,35 +587,33 @@ export async function setOrderItemQuantity(itemId: string, restaurantId: string,
 async function recomputeOrderTotals(orderId: string, restaurantId: string) {
   const order = await prisma.order.findFirst({
     where: { id: orderId, restaurantId },
-    include: { orderItems: true, tableSession: { select: { applyTax: true } } },
+    include: { orderItems: true, tableSession: { select: { applyTax: true, applyServiceCharge: true } } },
   });
   if (!order) return;
 
-  const subtotal = order.orderItems
-    .filter((i) => i.status !== "CANCELLED")
-    .reduce((sum, i) => sum.add(new Prisma.Decimal(i.subtotal)), new Prisma.Decimal(0));
+  const subtotal = roundMoney(
+    order.orderItems
+      .filter((i) => i.status !== "CANCELLED")
+      .reduce((sum, i) => sum.add(roundMoney(new Prisma.Decimal(i.subtotal))), new Prisma.Decimal(0))
+  );
 
-  const taxAmount = new Prisma.Decimal(0);
   const restaurant = await prisma.restaurant.findUnique({
     where: { id: restaurantId },
-    select: { isTaxEnabled: true, taxRate: true },
+    select: { isTaxEnabled: true, taxRate: true, isServiceChargeEnabled: true, serviceChargeRate: true },
   });
-  if (restaurant?.isTaxEnabled && restaurant.taxRate) {
-    const tax = subtotal.mul(restaurant.taxRate).div(100);
-    await prisma.order.update({
-      where: { id: orderId },
-      data: {
-        subtotal,
-        taxAmount: tax,
-        total: subtotal.add(tax),
-      },
-    });
-    return;
-  }
+  const taxAmount =
+    restaurant?.isTaxEnabled && order.tableSession.applyTax && restaurant.taxRate
+      ? roundMoney(subtotal.mul(restaurant.taxRate).div(100))
+      : new Prisma.Decimal(0);
+  const serviceChargeAmount =
+    restaurant?.isServiceChargeEnabled && order.tableSession.applyServiceCharge && restaurant.serviceChargeRate
+      ? roundMoney(subtotal.mul(restaurant.serviceChargeRate).div(100))
+      : new Prisma.Decimal(0);
+  const total = roundMoney(subtotal.add(taxAmount).add(serviceChargeAmount));
 
   await prisma.order.update({
     where: { id: orderId },
-    data: { subtotal, taxAmount, total: subtotal },
+    data: { subtotal, taxAmount, serviceChargeAmount, total },
   });
 }
 
@@ -615,9 +680,10 @@ export async function getSessionBill(tableSessionId: string, restaurantId: strin
       sum +
       order.orderItems
         .filter((i) => i.status !== "CANCELLED")
-        .reduce((s, i) => s + Number(i.subtotal), 0),
+        .reduce((s, i) => s + roundMoneyNumber(Number(i.subtotal)), 0),
     0
   );
+  const roundedSubtotal = roundMoneyNumber(subtotal);
 
   const [restaurant, tableSession] = await Promise.all([
     prisma.restaurant.findUnique({
@@ -629,12 +695,15 @@ export async function getSessionBill(tableSessionId: string, restaurantId: strin
       select: { applyTax: true, applyServiceCharge: true },
     }),
   ]);
-  const taxAmount = restaurant?.isTaxEnabled && tableSession?.applyTax ? (subtotal * Number(restaurant.taxRate)) / 100 : 0;
-  const serviceChargeAmount =
+  const taxAmount = roundMoneyNumber(
+    restaurant?.isTaxEnabled && tableSession?.applyTax ? (roundedSubtotal * Number(restaurant.taxRate)) / 100 : 0
+  );
+  const serviceChargeAmount = roundMoneyNumber(
     restaurant?.isServiceChargeEnabled && tableSession?.applyServiceCharge
-      ? (subtotal * Number(restaurant.serviceChargeRate)) / 100
-      : 0;
-  return { orders, subtotal, taxAmount, serviceChargeAmount, total: subtotal + taxAmount + serviceChargeAmount };
+      ? (roundedSubtotal * Number(restaurant.serviceChargeRate)) / 100
+      : 0
+  );
+  return { orders, subtotal: roundedSubtotal, taxAmount, serviceChargeAmount, total: roundMoneyNumber(roundedSubtotal + taxAmount + serviceChargeAmount) };
 }
 
 // ─── Admin queries ────────────────────────────────────────────────────────────

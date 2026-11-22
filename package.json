@@ -10,7 +10,8 @@
     "db:migrate": "npx prisma migrate deploy",
     "db:migrate:dev": "npx prisma migrate dev",
     "db:push": "npx prisma db push",
-    "db:generate": "npx prisma generate"
+    "db:generate": "npx prisma generate",
+    "daily-reset": "npx tsx scripts/daily-reset.ts"
   },
   "dependencies": {
     "@auth/prisma-adapter": "^2.11.3",

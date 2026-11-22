@@ -51,10 +51,11 @@ interface MyBooking {
 
 interface Props {
   restaurant: Restaurant;
-  tableToken: string;
-  sessionId: string | null;
+  tableToken?: string;
+  sessionId?: string | null;
   services: Service[];
   enabled: boolean;
+  publicMode?: boolean;
 }
 
 function typeIcon(type: string) {
@@ -73,11 +74,11 @@ function timeLabel(minutes: number): string {
   return `${h}:${m}`;
 }
 
-export default function BookClient({ restaurant, tableToken, sessionId, services, enabled }: Props) {
+export default function BookClient({ restaurant, tableToken = "", sessionId = null, services, enabled, publicMode = false }: Props) {
   const params = useParams();
   const { toast } = useToast();
   const [lang, setLang] = useCustomerLanguage(restaurant.id, restaurant.language ?? "EN");
-  const baseUrl = `/r/${params.restaurantSlug}/t/${params.tableToken}`;
+  const baseUrl = publicMode ? `/r/${params.restaurantSlug}` : `/r/${params.restaurantSlug}/t/${params.tableToken}`;
 
   const [selected, setSelected] = React.useState<Service | null>(null);
   const [date, setDate] = React.useState(() => {
@@ -104,7 +105,10 @@ export default function BookClient({ restaurant, tableToken, sessionId, services
     setSlotsLoading(true);
     setChosenSlot(null);
     try {
-      const res = await fetch(`/api/customer/bookings/availability?token=${tableToken}&serviceId=${serviceId}&date=${forDate}`, { cache: "no-store" });
+      const query = publicMode
+        ? `/api/customer/bookings/availability?slug=${restaurant.slug}&serviceId=${serviceId}&date=${forDate}`
+        : `/api/customer/bookings/availability?token=${tableToken}&serviceId=${serviceId}&date=${forDate}`;
+      const res = await fetch(query, { cache: "no-store" });
       if (!res.ok) throw new Error();
       const data = await res.json();
       setSlots(data.slots ?? []);
@@ -114,7 +118,7 @@ export default function BookClient({ restaurant, tableToken, sessionId, services
     } finally {
       setSlotsLoading(false);
     }
-  }, [tableToken, lang, toast]);
+  }, [publicMode, restaurant.slug, tableToken, lang, toast]);
 
   const selectService = (s: Service) => {
     setSelected(s);
@@ -138,21 +142,33 @@ export default function BookClient({ restaurant, tableToken, sessionId, services
     }
     setSubmitting(true);
     try {
-      const res = await fetch("/api/customer/bookings", {
+      const res = await fetch("/api/customer/bookings" + (publicMode ? "/public" : ""), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          token: tableToken,
-          serviceId: selected.id,
-          bookingDate: date,
-          startMinutes: chosenSlot.startMinutes,
-          durationMinutes: selected.slotDurationMinutes,
-          contactName: name.trim(),
-          contactPhone: phone.trim(),
-          guests,
-          note: note.trim() || undefined,
-          sessionId: sessionId ?? undefined,
-        }),
+        body: JSON.stringify(publicMode
+          ? {
+              slug: restaurant.slug,
+              serviceId: selected.id,
+              bookingDate: date,
+              startMinutes: chosenSlot.startMinutes,
+              durationMinutes: selected.slotDurationMinutes,
+              contactName: name.trim(),
+              contactPhone: phone.trim(),
+              guests,
+              note: note.trim() || undefined,
+            }
+          : {
+              token: tableToken,
+              serviceId: selected.id,
+              bookingDate: date,
+              startMinutes: chosenSlot.startMinutes,
+              durationMinutes: selected.slotDurationMinutes,
+              contactName: name.trim(),
+              contactPhone: phone.trim(),
+              guests,
+              note: note.trim() || undefined,
+              sessionId: sessionId ?? undefined,
+            }),
       });
       if (res.ok) {
         const body = await res.json();
@@ -174,7 +190,10 @@ export default function BookClient({ restaurant, tableToken, sessionId, services
     setSearching(true);
     setPhoneShown(phone.trim());
     try {
-      const res = await fetch(`/api/customer/bookings?token=${tableToken}&phone=${encodeURIComponent(phone.trim())}`, { cache: "no-store" });
+      const query = publicMode
+        ? `/api/customer/bookings/public?slug=${restaurant.slug}&phone=${encodeURIComponent(phone.trim())}`
+        : `/api/customer/bookings?token=${tableToken}&phone=${encodeURIComponent(phone.trim())}`;
+      const res = await fetch(query, { cache: "no-store" });
       if (!res.ok) throw new Error();
       setMyBookings(await res.json());
     } catch {
@@ -207,7 +226,7 @@ export default function BookClient({ restaurant, tableToken, sessionId, services
           <p className="font-bold text-gray-900 truncate">{t(lang, "Book Services", "सेवा बुक गर्नुहोस्")}</p>
           <p className="text-xs text-gray-500 truncate">{restaurant.name}</p>
         </div>
-        <LanguageToggle lang={lang} onChange={() => setLang(lang === "EN" ? "NEP" : "EN")} />
+        <LanguageToggle lang={lang} onChange={() => setLang(lang === "EN" ? "NEP" : "EN")} variant="light" />
       </header>
 
       <main className="max-w-lg mx-auto px-4 pt-5 space-y-6">

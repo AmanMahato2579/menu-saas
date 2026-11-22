@@ -6,6 +6,7 @@ type AuthUser = {
   restaurantId?: string | null;
   restaurantSlug?: string | null;
   restaurantName?: string | null;
+  tokenVersion?: number;
 };
 
 const authSecret = process.env.AUTH_SECRET ?? process.env.NEXTAUTH_SECRET;
@@ -57,6 +58,9 @@ export const authConfig: NextAuthConfig = {
         token.restaurantId = u.restaurantId;
         token.restaurantSlug = u.restaurantSlug;
         token.restaurantName = u.restaurantName;
+        token.tokenVersion = u.tokenVersion ?? 0;
+
+        return token;
       }
 
       return token;

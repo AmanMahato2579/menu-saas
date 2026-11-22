@@ -16,7 +16,8 @@ export async function POST(req: Request, { params }: { params: Promise<{ restaur
   const restaurant = await prisma.restaurant.findUnique({ where: { id: restaurantId }, select: { name: true } });
   const result = await prisma.user.updateMany({
     where: { restaurantId, role: "RESTAURANT_ADMIN" },
-    data: { passwordHash: await bcrypt.hash(parsed.data.password, 12) },
+    // Bump tokenVersion so every existing login of that owner is revoked.
+    data: { passwordHash: await bcrypt.hash(parsed.data.password, 12), tokenVersion: { increment: 1 } },
   });
   if (!result.count) return NextResponse.json({ error: "Owner not found" }, { status: 404 });
   await logActivity("password_reset", { restaurantId, restaurantName: restaurant?.name ?? null });

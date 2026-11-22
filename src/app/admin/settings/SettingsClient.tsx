@@ -11,6 +11,8 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/components/ui/toast";
+import { signOut } from "next-auth/react";
+import { useState } from "react";
 import { Switch } from "@/components/ui/switch";
 import { Loader2, Save, Percent, Languages, CalendarCheck, Palette, Check } from "lucide-react";
 import { LANGUAGE_OPTIONS, t } from "@/lib/i18n";
@@ -88,6 +90,48 @@ export default function SettingsClient({ restaurant }: Props) {
   const bookingsEnabled = watch("bookingsEnabled");
   const brandColor = watch("brandColor");
 
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [changingPassword, setChangingPassword] = useState(false);
+
+  const handleChangePassword = async () => {
+    if (!currentPassword || !newPassword) {
+      toast({ title: "Fill in all password fields", variant: "destructive" });
+      return;
+    }
+    if (newPassword.length < 8) {
+      toast({ title: "New password must be at least 8 characters", variant: "destructive" });
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      toast({ title: "New passwords do not match", variant: "destructive" });
+      return;
+    }
+    setChangingPassword(true);
+    try {
+      const res = await fetch("/api/admin/change-password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ currentPassword, newPassword }),
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        toast({ title: body.error ?? "Failed to change password", variant: "destructive" });
+        return;
+      }
+      toast({ title: "Password changed. Please sign in again.", variant: "success" });
+      setCurrentPassword("");
+      setNewPassword("");
+      setConfirmPassword("");
+      await signOut({ callbackUrl: "/login" });
+    } catch {
+      toast({ title: "Failed to change password", variant: "destructive" });
+    } finally {
+      setChangingPassword(false);
+    }
+  };
+
   const onSubmit = async (data: SettingsForm) => {
     const res = await fetch("/api/admin/settings", {
       method: "PATCH",
@@ -109,6 +153,7 @@ export default function SettingsClient({ restaurant }: Props) {
   };
 
   return (
+    <div className="space-y-6">
     <form onSubmit={handleSubmit(onSubmit)}>
       <Card>
         <CardHeader>
@@ -285,5 +330,30 @@ export default function SettingsClient({ restaurant }: Props) {
         </CardContent>
       </Card>
     </form>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Change Password</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4 max-w-md">
+          <div className="space-y-1.5">
+            <Label htmlFor="currentPassword">Current Password</Label>
+            <Input id="currentPassword" type="password" value={currentPassword} onChange={(e) => setCurrentPassword(e.target.value)} />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="newPassword">New Password</Label>
+            <Input id="newPassword" type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} />
+            <p className="text-xs text-gray-400">At least 8 characters. You will be signed out after changing it.</p>
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="confirmPassword">Confirm New Password</Label>
+            <Input id="confirmPassword" type="password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} />
+          </div>
+          <Button type="button" onClick={handleChangePassword} disabled={changingPassword} className="bg-orange-500 hover:bg-orange-600 text-white">
+            {changingPassword ? <><Loader2 className="w-4 h-4 animate-spin" /> Updating...</> : "Update Password"}
+          </Button>
+        </CardContent>
+      </Card>
+    </div>
   );
 }

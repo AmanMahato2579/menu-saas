@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useRouter, useParams } from "next/navigation";
 import Link from "next/link";
 import { formatCurrency } from "@/lib/utils";
@@ -37,6 +37,7 @@ export default function CartClient({ restaurant, table, tableSession }: Props) {
   const [lang, setLang] = useCustomerLanguage(restaurant.id, restaurant.language ?? "EN");
   const [cart, setCart] = useState<CartItem[]>(() => loadCart(tableSession.id));
   const [placing, setPlacing] = useState(false);
+  const clientRequestIdRef = useRef<string | null>(null);
 
   const baseUrl = `/r/${params.restaurantSlug}/t/${params.tableToken}`;
 
@@ -64,6 +65,9 @@ export default function CartClient({ restaurant, table, tableSession }: Props) {
     if (cart.length === 0) return;
     setPlacing(true);
     const customerToken = getOrCreateCustomerToken();
+    if (!clientRequestIdRef.current) {
+      clientRequestIdRef.current = crypto.randomUUID();
+    }
     try {
       const res = await fetch("/api/customer/orders", {
         method: "POST",
@@ -72,6 +76,7 @@ export default function CartClient({ restaurant, table, tableSession }: Props) {
           restaurantId: restaurant.id,
           tableSessionId: tableSession.id,
           customerToken,
+          clientRequestId: clientRequestIdRef.current,
           items: cart.map((i) => ({
             menuItemId: i.menuItemId,
             variantId: i.variantId,
@@ -89,10 +94,12 @@ export default function CartClient({ restaurant, table, tableSession }: Props) {
       }
 
       const order = await res.json();
+      clientRequestIdRef.current = null;
       // Clear cart
       saveCart(tableSession.id, []);
       setCart([]);
-      toast({ title: t(lang, "Order placed! 🎉", "अर्डर सफल भयो! 🎉"), variant: "success", description: t(lang, `Order #${order.orderNumber} received.`, `अर्डर #${order.orderNumber} प्राप्त भयो।`) });
+      const orderNumber = order.orderNumber ?? order.id;
+      toast({ title: t(lang, "Order placed! 🎉", "अर्डर सफल भयो! 🎉"), variant: "success", description: t(lang, `Order #${orderNumber} received.`, `अर्डर #${orderNumber} प्राप्त भयो।`) });
       // Keep the guest in the active session so they can add more items later.
       router.push(baseUrl);
     } catch {

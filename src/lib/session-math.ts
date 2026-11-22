@@ -85,16 +85,22 @@ export function toNumber(value: number | string | null | undefined): number {
   return 0;
 }
 
+function roundCurrency(value: number): number {
+  return Math.round((value + Number.EPSILON) * 100) / 100;
+}
+
 export function computeBill(items: SessionItem[], cfg: BillConfig): SessionBill {
   const active = items.filter((i) => i.status !== "CANCELLED");
-  const subtotal = active.reduce((s, i) => s + toNumber(i.subtotal), 0);
-  const taxAmount =
-    cfg.isTaxEnabled && cfg.applyTax ? (subtotal * Number(cfg.taxRate)) / 100 : 0;
-  const serviceChargeAmount =
+  const subtotal = roundCurrency(active.reduce((s, i) => s + toNumber(i.subtotal), 0));
+  const taxAmount = roundCurrency(
+    cfg.isTaxEnabled && cfg.applyTax ? (subtotal * Number(cfg.taxRate)) / 100 : 0
+  );
+  const serviceChargeAmount = roundCurrency(
     cfg.isServiceChargeEnabled && cfg.applyServiceCharge
       ? (subtotal * Number(cfg.serviceChargeRate)) / 100
-      : 0;
-  const total = subtotal + taxAmount + serviceChargeAmount;
+      : 0
+  );
+  const total = roundCurrency(subtotal + taxAmount + serviceChargeAmount);
 
   const served = items.filter((i) => i.status === "SERVED");
   const preparing = items.filter((i) => i.status === "PREPARING");

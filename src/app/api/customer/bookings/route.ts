@@ -3,6 +3,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { createBooking, getBookableSlots, getCustomerBookings } from "@/lib/db";
 import { loadOperationalRestaurant, getEffectiveAccess, canBook } from "@/lib/plans";
+import { rateLimit, clientIp } from "@/lib/rate-limit";
 
 const createSchema = z.object({
   token: z.string().min(1),
@@ -18,6 +19,10 @@ const createSchema = z.object({
 });
 
 export async function POST(req: Request) {
+  if (!rateLimit(`booking:${clientIp(req)}`, 6, 60_000)) {
+    return NextResponse.json({ error: "Too many booking attempts. Try again in a minute." }, { status: 429 });
+  }
+
   const parsed = createSchema.safeParse(await req.json());
   if (!parsed.success) return NextResponse.json({ error: "Invalid booking details" }, { status: 400 });
 
