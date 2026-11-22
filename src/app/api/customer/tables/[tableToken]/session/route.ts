@@ -3,10 +3,15 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { startTableSession } from "@/lib/db";
 import { loadOperationalRestaurant, getEffectiveAccess, canOrder } from "@/lib/plans";
+import { rateLimit, clientIp } from "@/lib/rate-limit";
 
 const bodySchema = z.object({ customerName: z.string().trim().max(80).optional() });
 
 export async function POST(req: Request, { params }: { params: Promise<{ tableToken: string }> }) {
+  if (!rateLimit(`session-start:${clientIp(req)}`, 20, 60_000)) {
+    return NextResponse.json({ error: "Too many attempts. Try again in a minute." }, { status: 429 });
+  }
+
   const { tableToken } = await params;
   const parsed = bodySchema.safeParse(await req.json());
   if (!parsed.success) return NextResponse.json({ error: "Invalid name" }, { status: 400 });
