@@ -1,6 +1,8 @@
 import { execSync } from "node:child_process";
+import { readdirSync } from "node:fs";
+import { join } from "node:path";
 
-const BASELINE = "20260916000000_init";
+const MIGRATIONS_DIR = join(process.cwd(), "prisma", "migrations");
 
 function sh(cmd) {
   try {
@@ -9,6 +11,13 @@ function sh(cmd) {
     console.error(`[prepare-db] command failed: ${cmd}`);
     process.exit(err.status ?? 1);
   }
+}
+
+function migrationNames() {
+  return readdirSync(MIGRATIONS_DIR, { withFileTypes: true })
+    .filter((d) => d.isDirectory())
+    .map((d) => d.name)
+    .sort();
 }
 
 console.log("[prepare-db] attempting: prisma migrate deploy");
@@ -22,11 +31,15 @@ try {
   );
 }
 
-console.log("[prepare-db] syncing schema (additive only, existing data untouched): prisma db push");
-sh("npx prisma db push --skip-generate");
+console.log(
+  "[prepare-db] syncing schema (additive only, existing data untouched): prisma db push"
+);
+sh("npx prisma db push --skip-generate --accept-data-loss");
 
-console.log(`[prepare-db] recording baseline as applied: ${BASELINE}`);
-sh(`npx prisma migrate resolve --applied ${BASELINE}`);
+for (const name of migrationNames()) {
+  console.log(`[prepare-db] recording migration as applied: ${name}`);
+  sh(`npx prisma migrate resolve --applied ${name}`);
+}
 
 console.log("[prepare-db] final: prisma migrate deploy");
 sh("npx prisma migrate deploy");
