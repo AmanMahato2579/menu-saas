@@ -13,6 +13,8 @@ interface AdminHeaderProps {
 }
 
 export default function AdminHeader({ user, initialUnreadCount = 0, onMenuClick, language = "EN" }: AdminHeaderProps) {
+  const displayName = user.name?.trim() || "Admin";
+  const firstName = displayName.split(" ")[0];
   return (
     <header className="bg-white border-b border-gray-200 px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between gap-3 shrink-0">
       <div className="flex items-center gap-3 min-w-0">
@@ -25,7 +27,7 @@ export default function AdminHeader({ user, initialUnreadCount = 0, onMenuClick,
         </button>
         <div className="min-w-0">
           <h2 className="text-base sm:text-lg font-semibold text-gray-900 truncate">
-            {t(language, `Welcome back, ${user.name.split(" ")[0]}!`, `${user.name.split(" ")[0]}जीलाई फेरि स्वागत छ!`)}
+            {t(language, `Welcome back, ${firstName}!`, `${firstName}जीलाई फेरि स्वागत छ!`)}
           </h2>
           <p className="hidden sm:block text-sm text-gray-500">
             {new Date().toLocaleDateString("en-US", {
@@ -40,7 +42,7 @@ export default function AdminHeader({ user, initialUnreadCount = 0, onMenuClick,
       <div className="flex items-center gap-2 sm:gap-3 shrink-0">
         <NotificationBell initialUnreadCount={initialUnreadCount} language={language} />
         <div className="w-9 h-9 rounded-lg bg-orange-500 flex items-center justify-center text-white font-semibold text-sm shadow shrink-0">
-          {user.name.charAt(0).toUpperCase()}
+          {displayName.charAt(0).toUpperCase()}
         </div>
       </div>
     </header>
