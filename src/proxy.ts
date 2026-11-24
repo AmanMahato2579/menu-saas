@@ -13,6 +13,12 @@ export default auth((req) => {
   const isLoginPage = nextUrl.pathname === "/login";
 
   if (isLoginPage && isLoggedIn) {
+    if (nextUrl.searchParams.get("signout") === "1") {
+      const res = NextResponse.next();
+      res.cookies.delete("authjs.session-token");
+      res.cookies.delete("__Secure-authjs.session-token");
+      return res;
+    }
     const role = (req.auth?.user as { role?: string })?.role;
     if (role === "SUPER_ADMIN") {
       return NextResponse.redirect(new URL("/super-admin", nextUrl));

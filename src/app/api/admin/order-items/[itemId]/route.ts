@@ -51,7 +51,7 @@ export async function PATCH(
 // status lifecycle (CANCEL) so an audit trail is preserved in the bill.
 export async function DELETE(_req: Request) {
   const session = await auth();
-  if (!session?.user) {
+  if (!session?.user?.id) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
   // Safer to refuse hard-delete of order items — use CANCEL instead.

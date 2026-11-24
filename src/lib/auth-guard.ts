@@ -6,10 +6,16 @@ import { loadOperationalRestaurant, isRestaurantOperational } from "@/lib/plans"
 
 export async function requireAuth(): Promise<AdminUser> {
   const session = await auth();
-  if (!session?.user) {
+  const user = session?.user as (AdminUser | undefined);
+  if (!user?.id || !user?.role) {
+    // Session exists but was revoked/wiped (e.g. tokenVersion mismatch) — force
+    // sign-out so the edge proxy doesn't bounce /login back to the dashboard.
+    if (session?.user) {
+      redirect("/login?signout=1");
+    }
     redirect("/login");
   }
-  return session.user as unknown as AdminUser;
+  return user;
 }
 
 export async function requireSuperAdmin(): Promise<AdminUser> {
