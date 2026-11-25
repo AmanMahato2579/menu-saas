@@ -4,10 +4,35 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { BRAND_COLOR_KEYS } from "@/lib/brand";
 import { logActivity } from "@/lib/activity";
+import { parseObjectOverrides } from "@/lib/plans";
 
 async function isSuperAdmin() {
   const session = await auth();
   return (session?.user as { role?: string })?.role === "SUPER_ADMIN";
+}
+
+export async function GET(
+  _req: Request,
+  { params }: { params: Promise<{ restaurantId: string }> }
+) {
+  if (!(await isSuperAdmin())) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+  const { restaurantId } = await params;
+
+  const restaurant = await prisma.restaurant.findUnique({
+    where: { id: restaurantId },
+    include: {
+      users: {
+        select: { id: true, name: true, email: true, role: true, createdAt: true },
+        orderBy: { createdAt: "asc" },
+      },
+      _count: { select: { tables: true, users: true, orders: true, bookings: true } },
+    },
+  });
+  if (!restaurant) return NextResponse.json({ error: "Restaurant not found" }, { status: 404 });
+
+  return NextResponse.json(restaurant);
 }
 
 const patchSchema = z
@@ -28,6 +53,7 @@ const patchSchema = z
     autoOff: z.boolean().optional(),
     starNumber: z.number().int().min(1).max(10).nullable().optional(),
     starNote: z.string().max(500).nullable().optional(),
+    featureOverrides: z.record(z.string(), z.boolean()).optional(),
     extendDays: z.number().int().min(1).max(3650).optional(),
   })
   .refine((v) => !(v.starNumber === undefined && v.starNote !== undefined), {
@@ -49,7 +75,17 @@ export async function PATCH(
 
   const restaurant = await prisma.restaurant.findUnique({
     where: { id: restaurantId },
-    select: { id: true, name: true, plan: true, starNumber: true, neverExpires: true, subscriptionExpiresAt: true, isActive: true },
+    select: {
+      id: true,
+      name: true,
+      plan: true,
+      starNumber: true,
+      neverExpires: true,
+      subscriptionExpiresAt: true,
+      subscriptionStatus: true,
+      isActive: true,
+      featureOverrides: true,
+    },
   });
   if (!restaurant) return NextResponse.json({ error: "Restaurant not found" }, { status: 404 });
 
@@ -80,6 +116,12 @@ export async function PATCH(
   if (data.autoOff !== undefined) update.autoOff = data.autoOff;
   if (data.starNote !== undefined) update.starNote = data.starNote;
   if (data.starNumber !== undefined) update.starNumber = data.starNumber;
+  if (data.featureOverrides !== undefined) {
+    update.featureOverrides = JSON.stringify({
+      ...parseObjectOverrides(restaurant.featureOverrides),
+      ...data.featureOverrides,
+    });
+  }
 
   // Star assignment implies plan STAR, and an assignment resets the subscription
   // to an active, never-expiring founding status.
@@ -132,6 +174,12 @@ export async function PATCH(
     activities.push({ action: "limit_changed", detail: `QR table limit → ${data.tableLimit}` });
   if (data.bookingsEnabled !== undefined)
     activities.push({ action: data.bookingsEnabled ? "bookings_enabled" : "bookings_disabled", detail: "" });
+  if (data.featureOverrides !== undefined) {
+    const changed = Object.entries(data.featureOverrides)
+      .map(([key, value]) => `${key} ${value ? "ON" : "OFF"}`)
+      .join(", ");
+    if (changed) activities.push({ action: "feature_changed", detail: changed });
+  }
 
   for (const { action, detail } of activities) {
     await logActivity(action, { restaurantId, restaurantName: updated.name, detail: detail || undefined });

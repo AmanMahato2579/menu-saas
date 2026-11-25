@@ -7,10 +7,12 @@ import type { Resolver } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useToast } from "@/components/ui/toast";
-import { Plus, Building2, Users, QrCode, CheckCircle, XCircle, Loader2, Trash2, Pencil, CalendarCheck, Star, Clock3 } from "lucide-react";
+import Link from "next/link";
+import { Plus, Building2, Users, QrCode, CheckCircle, XCircle, Loader2, Trash2, Pencil, CalendarCheck, Star, Clock3, ExternalLink } from "lucide-react";
 import { slugify } from "@/lib/utils";
 import { planStyleVariant } from "@/lib/plan-catalog";
 import { BRAND_PALETTES } from "@/lib/brand";
+import { PACKAGES } from "@/lib/packages";
 
 const restaurantSchema = z.object({
   name: z.string().min(2, "Name too short"),
@@ -20,7 +22,10 @@ const restaurantSchema = z.object({
   tableCount: z.coerce.number().int().min(0).max(200),
   phone: z.string().optional(),
   address: z.string().optional(),
+  description: z.string().max(1000).optional(),
   plan: z.enum(["STAR", "SILVER", "BRONZE"]).optional(),
+  packageId: z.enum(["menu_view", "menu_order", "restaurant_full"]).optional(),
+  durationDays: z.preprocess((v) => (v === "" || v == null ? undefined : v), z.coerce.number().int().min(1).max(3650).optional()),
   starNumber: z.coerce.number().int().min(1).max(10).optional().nullable(),
 });
 
@@ -43,8 +48,11 @@ interface Restaurant {
   autoOff: boolean;
   starNumber: number | null;
   starNote: string | null;
+  description: string | null;
   createdAt: string;
-  _count: { tables: number; users: number };
+  ownerName?: string | null;
+  ownerEmail?: string | null;
+  _count: { tables: number; users: number; orders?: number; bookings?: number };
 }
 
 interface Props {
@@ -76,13 +84,24 @@ export default function SuperAdminClient({ restaurants }: Props) {
   const [editSaving, setEditSaving] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
 
-  const { register, handleSubmit, reset, watch, formState: { errors, isSubmitting } } =
+  const { register, handleSubmit, reset, watch, setValue, formState: { errors, isSubmitting } } =
     useForm<RestaurantForm>({
       resolver: zodResolver(restaurantSchema) as unknown as Resolver<RestaurantForm>,
-      defaultValues: { tableCount: 0, plan: "STAR", starNumber: null },
+      defaultValues: { tableCount: 0, plan: "STAR", packageId: "restaurant_full", starNumber: null },
     });
 
   const name = watch("name");
+  const packageId = watch("packageId");
+
+  const usedStarNumbers = new Set(
+    restaurants.map((r) => r.starNumber).filter((n): n is number => n != null)
+  );
+  const freeStarNumbers = Array.from({ length: 10 }, (_, i) => i + 1).filter((n) => !usedStarNumbers.has(n));
+
+  const applyPackage = (id: string) => {
+    const pkg = PACKAGES.find((p) => p.id === id);
+    if (pkg) setValue("plan", pkg.plan);
+  };
 
   const patch = async (id: string, body: Record<string, unknown>) => {
     setBusyId(id);
@@ -131,7 +150,7 @@ export default function SuperAdminClient({ restaurants }: Props) {
   };
 
   const assignNextStar = async (r: Restaurant) => {
-    const used = new Set(restaurants.map((x) => x.starNumber).filter((n): n is number => n != null));
+    const used = usedStarNumbers;
     for (let n = 1; n <= 10; n++) {
       if (!used.has(n)) {
         const res = await patch(r.id, { starNumber: n });
@@ -144,7 +163,7 @@ export default function SuperAdminClient({ restaurants }: Props) {
         return;
       }
     }
-    toast({ title: "All 10 star numbers are taken", variant: "destructive" });
+    toast({ title: "All 10 star numbers are taken", variant: "destructive", description: "Remove a star first." });
   };
 
   const removeStar = async (r: Restaurant) => {
@@ -227,12 +246,15 @@ export default function SuperAdminClient({ restaurants }: Props) {
       body: JSON.stringify(data),
     });
     if (res.ok) {
+      const pkg = PACKAGES.find((p) => p.id === data.packageId);
       toast({
         title: `${data.name} created!`,
         variant: "success",
-        description: data.starNumber ? `Owner: ${data.ownerEmail} · Star #${data.starNumber}` : `Owner: ${data.ownerEmail} · Plan: ${data.plan ?? "STAR"}`,
+        description: data.starNumber
+          ? `Owner: ${data.ownerEmail} · Star #${data.starNumber}`
+          : `Owner: ${data.ownerEmail} · ${pkg?.shortName ?? data.plan ?? "STAR"}${data.durationDays ? ` · ${data.durationDays} days` : ""}`,
       });
-      reset({ tableCount: 0, plan: "STAR", starNumber: null });
+      reset({ tableCount: 0, plan: "STAR", packageId: "restaurant_full", starNumber: null });
       setShowForm(false);
       startTransition(() => router.refresh());
     } else {
@@ -253,6 +275,11 @@ export default function SuperAdminClient({ restaurants }: Props) {
               <input {...register("name")} placeholder="Demo Momo House" className={inputCls} />
               {name && <p className="text-xs text-gray-400">Slug: {slugify(name)}</p>}
               {errors.name && <p className="text-red-400 text-xs">{errors.name.message}</p>}
+            </div>
+            <div className="col-span-2 space-y-1">
+              <label className="text-sm text-gray-300">Short description</label>
+              <input {...register("description")} placeholder="Authentic Nepali momo & fast food" className={inputCls} />
+              {errors.description && <p className="text-red-400 text-xs">{errors.description.message}</p>}
             </div>
             <div className="space-y-1">
               <label className="text-sm text-gray-300">Owner Name *</label>
@@ -275,7 +302,23 @@ export default function SuperAdminClient({ restaurants }: Props) {
               {errors.tableCount && <p className="text-red-400 text-xs">{errors.tableCount.message}</p>}
             </div>
             <div className="space-y-1">
-              <label className="text-sm text-gray-300">Starting plan</label>
+              <label className="text-sm text-gray-300">Package (sets plan, features &amp; default expiry)</label>
+              <select {...register("packageId")} onChange={(e) => { register("packageId").onChange(e); applyPackage(e.target.value); }} className={inputCls}>
+                {PACKAGES.map((p) => (
+                  <option key={p.id} value={p.id}>{p.name} — {p.priceLine}</option>
+                ))}
+              </select>
+              {packageId && (() => {
+                const pkg = PACKAGES.find((p) => p.id === packageId);
+                return pkg ? (
+                  <p className="text-xs text-gray-400">
+                    Plan {pkg.plan} · {pkg.defaultDays} days · {pkg.tagline}
+                  </p>
+                ) : null;
+              })()}
+            </div>
+            <div className="space-y-1">
+              <label className="text-sm text-gray-300">Billing plan (overrides package)</label>
               <select {...register("plan")} className={inputCls}>
                 <option value="STAR">STAR (founding → assign star #)</option>
                 <option value="SILVER">SILVER</option>
@@ -283,8 +326,25 @@ export default function SuperAdminClient({ restaurants }: Props) {
               </select>
             </div>
             <div className="space-y-1">
+              <label className="text-sm text-gray-300">Subscription length (days, optional)</label>
+              <input type="number" min={1} max={3650} {...register("durationDays")} placeholder={`auto (${(() => { const p = PACKAGES.find((x) => x.id === packageId); return p ? p.defaultDays : 365; })()} days)`} className={inputCls} />
+              {errors.durationDays && <p className="text-red-400 text-xs">{errors.durationDays.message}</p>}
+            </div>
+            <div className="space-y-1">
               <label className="text-sm text-gray-300">Star number (1–10, founding only)</label>
-              <input type="number" min={1} max={10} {...register("starNumber")} placeholder="Leave empty if not a founding customer" className={inputCls} />
+              <select {...register("starNumber")} className={inputCls}>
+                <option value="">Not a founding customer</option>
+                {freeStarNumbers.length === 0 ? (
+                  <option value="" disabled>No star numbers free</option>
+                ) : (
+                  freeStarNumbers.map((n) => <option key={n} value={n}>Star # {n}</option>)
+                )}
+              </select>
+              <p className="text-xs text-gray-500">
+                {freeStarNumbers.length > 0
+                  ? `Free now: ${freeStarNumbers.map((n) => `#${n}`).join(", ")}`
+                  : "All 10 star numbers are taken — remove one first."}
+              </p>
             </div>
             <div className="space-y-1">
               <label className="text-sm text-gray-300">Phone</label>
@@ -300,7 +360,7 @@ export default function SuperAdminClient({ restaurants }: Props) {
                 {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
                 Create Restaurant
               </button>
-              <button type="button" onClick={() => { setShowForm(false); reset({ tableCount: 0, plan: "STAR", starNumber: null }); }}
+              <button type="button" onClick={() => { setShowForm(false); reset({ tableCount: 0, plan: "STAR", packageId: "restaurant_full", starNumber: null }); }}
                 className="px-6 py-2.5 border border-white/20 text-gray-300 rounded-lg text-sm hover:border-white/40 transition-colors">
                 Cancel
               </button>
@@ -345,7 +405,9 @@ export default function SuperAdminClient({ restaurants }: Props) {
                   <select name="starNumber" defaultValue={r.starNumber ?? ""} className={inputCls}>
                     <option value="">Not a star (first-10 off)</option>
                     {Array.from({ length: 10 }, (_, i) => i + 1).map((n) => (
-                      <option key={n} value={n}>Star # {n}</option>
+                      <option key={n} value={n} disabled={r.starNumber !== n && usedStarNumbers.has(n)}>
+                        Star # {n}{r.starNumber === n ? " (current)" : usedStarNumbers.has(n) ? " — taken" : ""}
+                      </option>
                     ))}
                   </select>
                   <input name="starNote" defaultValue={r.starNote ?? ""} className={inputCls} placeholder="Star note (optional)" />
@@ -404,7 +466,9 @@ export default function SuperAdminClient({ restaurants }: Props) {
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
-                    <p className="font-semibold text-white">{r.name}</p>
+                    <Link href={`/super-admin/restaurants/${r.id}`} className="font-semibold text-white hover:text-purple-300 transition-colors">
+                      {r.name}
+                    </Link>
                     <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${r.isActive ? "bg-green-500/20 text-green-400" : "bg-red-500/20 text-red-400"}`}>
                       {r.isActive ? "Active" : "Inactive"}
                     </span>
@@ -416,10 +480,21 @@ export default function SuperAdminClient({ restaurants }: Props) {
                     )}
                     <span className={`text-xs px-2 py-0.5 rounded-full ${sub.className}`}>{sub.label}</span>
                   </div>
-                  <p className="text-xs text-gray-400">/{r.slug}</p>
+                  <p className="text-xs text-gray-400">
+                    /{r.slug} · joined {new Date(r.createdAt).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" })}
+                  </p>
+                  {(r.ownerName || r.ownerEmail) && (
+                    <p className="text-xs text-gray-300 truncate">
+                      <span className="inline-flex items-center gap-1 font-medium text-purple-300"><Users className="w-3 h-3" /> {r.ownerName || "Owner"}</span>
+                      <span className="text-gray-400"> · <a href={`mailto:${r.ownerEmail ?? ""}`} className="text-gray-300 hover:text-white">{r.ownerEmail ?? "—"}</a></span>
+                    </p>
+                  )}
+                  {r.description && <p className="text-xs text-gray-400 truncate">{r.description}</p>}
+                  {r.starNote && <p className="text-xs text-gray-500 italic">Star note: {r.starNote}</p>}
                   <div className="flex items-center gap-3 mt-1 text-xs text-gray-400 flex-wrap">
                     <span className="flex items-center gap-1"><QrCode className="w-3 h-3" /> {r._count.tables} / {r.tableLimit} QR tables</span>
                     <span className="flex items-center gap-1"><Users className="w-3 h-3" /> {r._count.users} users</span>
+                    {r._count.orders !== undefined && <span className="flex items-center gap-1">{r._count.orders} orders</span>}
                     {r.bookingsEnabled && <span className="flex items-center gap-1"><CalendarCheck className="w-3 h-3" /> Bookings on</span>}
                     {r.plan === "SILVER" || r.plan === "BRONZE" ? (
                       <span className={`flex items-center gap-1 ${r.autoOff ? "text-amber-300/80" : "text-gray-500"}`}>
@@ -430,6 +505,7 @@ export default function SuperAdminClient({ restaurants }: Props) {
                   </div>
                 </div>
                 <div className="flex flex-col gap-2 shrink-0">
+                  <Link href={`/super-admin/restaurants/${r.id}`} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border border-purple-500/40 text-purple-300 hover:bg-purple-500/10"><ExternalLink className="w-3.5 h-3.5" /> Manage</Link>
                   <button onClick={() => setEditing(r)} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border border-white/20 text-gray-200 hover:bg-white/10"><Pencil className="w-3.5 h-3.5" /> Edit details</button>
                   <button
                     onClick={() => (r.starNumber != null ? removeStar(r) : assignNextStar(r))}

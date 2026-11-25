@@ -2,7 +2,8 @@ import { requireSuperAdmin } from "@/lib/auth-guard";
 import { prisma } from "@/lib/prisma";
 import { listActivity, actionLabel } from "@/lib/activity";
 import Link from "next/link";
-import { Building2, Activity as ActivityIcon, Star as StarIcon, AlertTriangle } from "lucide-react";
+import { Building2, Activity as ActivityIcon, Star as StarIcon, AlertTriangle, BadgeCheck } from "lucide-react";
+import { planStyleVariant } from "@/lib/plan-catalog";
 
 export const metadata = { title: "Overview – Super Admin" };
 export const dynamic = "force-dynamic";
@@ -141,6 +142,29 @@ export default async function OverviewPage() {
             </div>
           )}
         </div>
+      </div>
+
+      <div className="bg-white/5 border border-white/10 rounded-2xl p-5">
+        <div className="flex items-center gap-2 mb-4">
+          <BadgeCheck className="w-4 h-4 text-purple-300" />
+          <h2 className="font-bold">Plan mix</h2>
+        </div>
+        {o.planBreakdown.length === 0 ? (
+          <p className="text-sm text-gray-500">No plans assigned yet.</p>
+        ) : (
+          <div className="flex flex-wrap gap-3">
+            {o.planBreakdown.map((item) => {
+              const style = planStyleVariant(item.plan);
+              return (
+                <div key={item.plan} className="flex items-center gap-3 rounded-xl border border-white/10 bg-white/5 px-4 py-3">
+                  <span className={`text-xs px-2 py-0.5 rounded-full font-bold ${style.badge}`}>{style.label}</span>
+                  <span className="text-lg font-bold">{item._count}</span>
+                  <span className="text-xs text-gray-500">restaurants</span>
+                </div>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       <div className="bg-white/5 border border-white/10 rounded-2xl p-5">

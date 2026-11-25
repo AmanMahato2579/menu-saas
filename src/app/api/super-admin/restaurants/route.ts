@@ -6,6 +6,7 @@ import bcrypt from "bcryptjs";
 import { slugify } from "@/lib/utils";
 import { getPlatformSettings } from "@/lib/settings";
 import { logActivity } from "@/lib/activity";
+import { findPackage } from "@/lib/packages";
 
 const schema = z.object({
   name: z.string().min(2),
@@ -15,7 +16,10 @@ const schema = z.object({
   tableCount: z.number().int().min(0).max(200).optional(),
   phone: z.string().optional(),
   address: z.string().optional(),
+  description: z.string().max(1000).optional(),
   plan: z.enum(["STAR", "SILVER", "BRONZE"]).optional(),
+  packageId: z.enum(["menu_view", "menu_order", "restaurant_full"]).optional(),
+  durationDays: z.number().int().min(1).max(3650).optional(),
   starNumber: z.number().int().min(1).max(10).nullable().optional(),
 });
 
@@ -33,7 +37,7 @@ export async function POST(req: Request) {
   const parsed = schema.safeParse(body);
   if (!parsed.success) return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
 
-  const { name, ownerName, ownerEmail, tempPassword, phone, address, plan, starNumber } = parsed.data;
+  const { name, ownerName, ownerEmail, tempPassword, phone, address, description, plan, packageId, durationDays, starNumber } = parsed.data;
   const settings = await getPlatformSettings();
   const tableCount = parsed.data.tableCount ?? settings.defaultTableLimit;
 
@@ -52,11 +56,17 @@ export async function POST(req: Request) {
 
   const passwordHash = await bcrypt.hash(tempPassword, 12);
 
+  const pkg = findPackage(packageId);
   const isStar = starNumber != null;
+  const effectivePlan = isStar ? "STAR" : (plan ?? pkg?.plan ?? "STAR");
+  const featureOverrides =
+    pkg && !isStar && !plan
+      ? JSON.stringify(Object.fromEntries(pkg.featureOff.map((key) => [key, false])))
+      : null;
   const expiry =
     settings.newRestaurantNeverExpires || isStar
       ? null
-      : new Date(Date.now() + settings.defaultSubscriptionDays * 86400000);
+      : new Date(Date.now() + (durationDays ?? pkg?.defaultDays ?? settings.defaultSubscriptionDays) * 86400000);
 
   // Create restaurant + owner + tables in a transaction
   const result = await prisma.$transaction(async (tx) => {
@@ -66,8 +76,10 @@ export async function POST(req: Request) {
         slug,
         phone,
         address,
+        description,
         tableLimit: tableCount,
-        plan: isStar ? "STAR" : (plan ?? "STAR"),
+        plan: effectivePlan,
+        featureOverrides,
         starNumber,
         subscriptionStatus: "ACTIVE",
         subscriptionStart: new Date(),
@@ -103,7 +115,9 @@ export async function POST(req: Request) {
   await logActivity("restaurant_created", {
     restaurantId: result.restaurant.id,
     restaurantName: result.restaurant.name,
-    detail: isStar ? `Star founding assignment #${starNumber}` : `Plan: ${result.restaurant.plan}`,
+    detail: isStar
+      ? `Star founding assignment #${starNumber}`
+      : `${pkg ? `Package: ${pkg.name} · ` : ""}Plan: ${result.restaurant.plan}${durationDays ? ` · ${durationDays} days` : ""}`,
   });
   if (isStar) {
     await logActivity("star_assigned", {
@@ -113,5 +127,15 @@ export async function POST(req: Request) {
     });
   }
 
-  return NextResponse.json(result, { status: 201 });
+  const owner = {
+    id: result.user.id,
+    name: result.user.name,
+    email: result.user.email,
+    role: result.user.role,
+    restaurantId: result.user.restaurantId,
+  };
+  return NextResponse.json(
+    { restaurant: result.restaurant, user: owner },
+    { status: 201 }
+  );
 }

@@ -83,4 +83,5 @@ export interface AdminUser {
   restaurantId: string | null;
   restaurantSlug: string | null;
   restaurantName: string | null;
+  tokenVersion?: number;
 }
